@@ -1,33 +1,95 @@
-HELP.md
-target/
-.mvn/wrapper/maven-wrapper.jar
-!**/src/main/**/target/
-!**/src/test/**/target/
+# ──────────────────────────────────────────────────────────
+# Sistema operacional
+# ──────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
 
-### STS ###
-.apt_generated
+# ──────────────────────────────────────────────────────────
+# IDEs e editores
+# ──────────────────────────────────────────────────────────
+.idea/
+*.iml
+*.iws
+*.ipr
+.vscode/
+!.vscode/settings.json
+!.vscode/extensions.json
+.eclipse/
+.settings/
+.project
 .classpath
 .factorypath
-.project
-.settings
-.springBeans
-.sts4-cache
+*.sublime-project
+*.sublime-workspace
 
-### IntelliJ IDEA ###
-.idea
-*.iws
-*.iml
-*.ipr
+# ──────────────────────────────────────────────────────────
+# Variáveis de ambiente
+# ──────────────────────────────────────────────────────────
+.env
+.env.local
+.env.*.local
+!.env.example
 
-### NetBeans ###
-/nbproject/private/
-/nbbuild/
-/dist/
-/nbdist/
-/.nb-gradle/
+# ──────────────────────────────────────────────────────────
+# Logs
+# ──────────────────────────────────────────────────────────
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ──────────────────────────────────────────────────────────
+# Backend (Java / Maven) — complementa o backend/.gitignore
+# ──────────────────────────────────────────────────────────
+target/
+*.class
+*.jar
+*.war
+*.ear
+*.nar
+hs_err_pid*
+replay_pid*
+
+# Banco de dados H2 (arquivos locais de desenvolvimento)
+*.mv.db
+*.trace.db
+*.lock.db
+
+# JaCoCo
+jacoco.exec
+*.exec
+
+# ──────────────────────────────────────────────────────────
+# Frontend (Node / npm / Vite)
+# ──────────────────────────────────────────────────────────
+node_modules/
+dist/
+dist-ssr/
 build/
-!**/src/main/**/build/
-!**/src/test/**/build/
+.next/
+.nuxt/
+.vite/
+.cache/
+coverage/
+.pnp.*
+.yarn/cache
+.yarn/install-state.gz
+.yarn/build-state.yml
+.yarn/unplugged
 
-### VS Code ###
-.vscode/
+# Lockfiles que não estamos usando (manter apenas o do gerenciador escolhido)
+# Descomente o que NÃO for usar:
+# package-lock.json
+# yarn.lock
+# pnpm-lock.yaml
+
+# ──────────────────────────────────────────────────────────
+# Outros
+# ──────────────────────────────────────────────────────────
+*.bak
+*.tmp
+*.swp
+*~
