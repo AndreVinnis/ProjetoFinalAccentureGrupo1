@@ -5,6 +5,7 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -26,6 +27,12 @@ public class User {
 
     @Column(nullable = false, unique = true, length = 150)
     private String email;
+
+    @Column(nullable = false, unique = true, length = 11)
+    private String cpf;
+
+    @Column(name = "birth_date", nullable = false)
+    private LocalDate birthDate;
 
     @Column(name = "password_hash", nullable = false)
     private String passwordHash;
