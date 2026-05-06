@@ -39,6 +39,10 @@ spring:
           starttls:
             enable: false
 
+jwt:
+  secret: ${JWT_SECRET:cHJvamV0by1maW5hbC1hY2FkZW1pYS1qYXZhLXNlY3JldC1ub3QtZm9yLXByb2R1Y3Rpb24xMjM=}
+  expiration-minutes: 60
+
 
 logging:
   level:
