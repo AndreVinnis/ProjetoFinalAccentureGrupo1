@@ -2,18 +2,18 @@ spring:
   application:
     name: ProjetoFinalAccentureGrupo1
 
-  datasource:
-    url: jdbc:h2:mem:mydb
-    driver-class-name: org.h2.Driver
-    username: sa
-    password: ""
 
-  jpa:
-    database-platform: org.hibernate.dialect.H2Dialect
-
-  h2:
-    console:
-      enabled: true
+  profiles:
+    active: dev
 
 server:
-  port: 8081
+  port: 8080
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: method
+    tags-sorter: alpha
+    display-request-duration: true
