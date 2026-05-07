@@ -4,6 +4,7 @@ import jakarta.validation.constraints.*;
 
 import java.time.LocalDate;
 
+// Autor: André Vinícius Barros Macambira
 public record RegisterRequest(
 
         // Dados do User (módulo auth)

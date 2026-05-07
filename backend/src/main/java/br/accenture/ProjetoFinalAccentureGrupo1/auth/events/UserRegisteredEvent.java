@@ -2,6 +2,7 @@ package br.accenture.ProjetoFinalAccentureGrupo1.auth.events;
 
 import java.time.LocalDate;
 
+// Autor: André Vinícius Barros Macambira
 public record UserRegisteredEvent(
         Long userId,
         String name,

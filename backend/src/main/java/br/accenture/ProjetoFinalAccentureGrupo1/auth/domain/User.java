@@ -16,6 +16,7 @@ import java.util.Set;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+// Autor: André Vinícius Barros Macambira
 public class User {
 
     @Id
