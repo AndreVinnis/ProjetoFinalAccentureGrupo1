@@ -4,6 +4,8 @@ import br.accenture.ProjetoFinalAccentureGrupo1.banking.dto.CreditCardPurchaseRe
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.dto.CreditCardResponse;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.dto.CreditCardTransactionResponse;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.dto.CreditLimitResponse;
+import br.accenture.ProjetoFinalAccentureGrupo1.banking.dto.CreditPaymentRequest;
+import br.accenture.ProjetoFinalAccentureGrupo1.banking.dto.CreditPaymentResponse;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.services.CreditCardService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -41,6 +43,15 @@ public class CreditCardController {
             @RequestBody @Valid CreditCardPurchaseRequest request
     ) {
         return ResponseEntity.ok(creditCardService.purchase(userDetails.getUsername(), request));
+    }
+
+    @PostMapping("/me/credit-payments")
+    @PreAuthorize("hasRole('CUSTOMER')")
+    public ResponseEntity<CreditPaymentResponse> payWithCredit(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @RequestBody @Valid CreditPaymentRequest request
+    ) {
+        return ResponseEntity.ok(creditCardService.payWithCredit(userDetails.getUsername(), request));
     }
 
     @GetMapping("/me/transactions")

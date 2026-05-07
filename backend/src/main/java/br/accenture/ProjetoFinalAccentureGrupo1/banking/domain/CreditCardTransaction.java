@@ -33,6 +33,12 @@ public class CreditCardTransaction {
     @Column(nullable = false, length = 255)
     private String description;
 
+    @Column
+    private Integer installments;
+
+    @Column(name = "installment_amount", precision = 14, scale = 2)
+    private BigDecimal installmentAmount;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private CreditCardTransactionStatus status;
@@ -45,6 +51,12 @@ public class CreditCardTransaction {
 
     @PrePersist
     protected void onCreate() {
+        if (this.installments == null) {
+            this.installments = 1;
+        }
+        if (this.installmentAmount == null) {
+            this.installmentAmount = this.amount;
+        }
         this.createdAt = Instant.now();
     }
 }
