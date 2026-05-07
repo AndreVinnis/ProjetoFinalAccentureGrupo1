@@ -1,4 +1,4 @@
-package br.accenture.ProjetoFinalAccentureGrupo1.security;
+package br.accenture.ProjetoFinalAccentureGrupo1.auth.security;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;

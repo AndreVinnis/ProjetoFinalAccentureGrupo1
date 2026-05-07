@@ -1,4 +1,4 @@
-package br.accenture.ProjetoFinalAccentureGrupo1.security;
+package br.accenture.ProjetoFinalAccentureGrupo1.auth.security;
 
 import br.accenture.ProjetoFinalAccentureGrupo1.auth.domain.User;
 import br.accenture.ProjetoFinalAccentureGrupo1.auth.repository.UserRepository;
