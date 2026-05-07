@@ -21,6 +21,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 @Transactional
+// Autor: André Vinícius Barros Macambira
 class AuthControllerTest {
 
     @Autowired

@@ -11,6 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Component
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
+// Autor: André Vinícius Barros Macambira
 public class UserFacadeImpl implements UserFacade{
 
     private final UserRepository userRepository;

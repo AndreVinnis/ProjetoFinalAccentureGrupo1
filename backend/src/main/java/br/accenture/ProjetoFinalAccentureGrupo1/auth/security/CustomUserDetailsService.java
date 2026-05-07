@@ -13,6 +13,7 @@ import java.util.Collection;
 
 @Service
 @RequiredArgsConstructor
+// Autor: André Vinícius Barros Macambira
 public class CustomUserDetailsService implements UserDetailsService {
 
     private final UserRepository userRepository;

@@ -27,6 +27,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
+// Autor: André Vinícius Barros Macambira
 @ExtendWith(MockitoExtension.class)
 class AuthServiceTest {
 

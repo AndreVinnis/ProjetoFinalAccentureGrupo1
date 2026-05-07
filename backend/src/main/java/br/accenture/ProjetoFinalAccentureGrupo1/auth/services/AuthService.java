@@ -22,6 +22,7 @@ import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
+// Autor: André Vinícius Barros Macambira
 public class AuthService {
 
     private final UserRepository userRepository;

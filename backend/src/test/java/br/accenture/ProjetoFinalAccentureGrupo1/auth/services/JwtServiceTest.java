@@ -8,6 +8,7 @@ import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+// Autor: André Vinícius Barros Macambira
 class JwtServiceTest {
 
     private JwtService jwtService;
