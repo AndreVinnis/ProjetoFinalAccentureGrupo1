@@ -7,6 +7,8 @@ import br.accenture.ProjetoFinalAccentureGrupo1.banking.domain.CreditCardTransac
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.dto.CreditCardPurchaseRequest;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.dto.CreditCardResponse;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.dto.CreditCardTransactionResponse;
+import br.accenture.ProjetoFinalAccentureGrupo1.banking.dto.CreditPaymentRequest;
+import br.accenture.ProjetoFinalAccentureGrupo1.banking.dto.CreditPaymentResponse;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.enums.CreditCardStatus;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.enums.CreditCardTransactionStatus;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.exceptions.CreditCardBlockedException;
@@ -117,6 +119,36 @@ class CreditCardServiceTest {
         assertEquals(CreditCardTransactionStatus.APPROVED, response.status());
         assertEquals(new BigDecimal("750.00"), card.getAvailableLimit());
         assertEquals(new BigDecimal("250.00"), card.getInvoiceBalance());
+        verify(creditCardRepository).save(card);
+    }
+
+    @Test
+    void payWithCredit_DeveAprovarPagamentoParcelado_QuandoCvvELimiteSaoValidos() {
+        CreditPaymentRequest request = new CreditPaymentRequest(
+                new BigDecimal("300.00"),
+                3,
+                "Loja Accenture",
+                "Pedido #123"
+        );
+
+        when(userRepository.findByEmail("ana@email.com")).thenReturn(Optional.of(user));
+        when(creditCardRepository.findByUserId(1L)).thenReturn(Optional.of(card));
+        when(transactionRepository.save(any(CreditCardTransaction.class))).thenAnswer(invocation -> {
+            CreditCardTransaction saved = invocation.getArgument(0);
+            saved.setId(30L);
+            return saved;
+        });
+
+        CreditPaymentResponse response = creditCardService.payWithCredit("ana@email.com", request);
+
+        assertEquals(30L, response.transactionId());
+        assertEquals(CreditCardTransactionStatus.APPROVED, response.status());
+        assertEquals(3, response.installments());
+        assertEquals(new BigDecimal("100.00"), response.installmentAmount());
+        assertEquals(new BigDecimal("700.00"), response.remainingLimit());
+        assertEquals(new BigDecimal("300.00"), response.invoiceBalance());
+        assertEquals(new BigDecimal("700.00"), card.getAvailableLimit());
+        assertEquals(new BigDecimal("300.00"), card.getInvoiceBalance());
         verify(creditCardRepository).save(card);
     }
 

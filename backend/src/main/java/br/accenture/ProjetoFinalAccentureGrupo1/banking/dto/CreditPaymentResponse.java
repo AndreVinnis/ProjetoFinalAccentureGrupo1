@@ -5,8 +5,8 @@ import br.accenture.ProjetoFinalAccentureGrupo1.banking.enums.CreditCardTransact
 import java.math.BigDecimal;
 import java.time.Instant;
 
-public record CreditCardTransactionResponse(
-        Long id,
+public record CreditPaymentResponse(
+        Long transactionId,
         BigDecimal amount,
         Integer installments,
         BigDecimal installmentAmount,
@@ -14,5 +14,7 @@ public record CreditCardTransactionResponse(
         String description,
         CreditCardTransactionStatus status,
         String declineReason,
-        Instant createdAt
+        BigDecimal remainingLimit,
+        BigDecimal invoiceBalance,
+        Instant authorizedAt
 ) {}
