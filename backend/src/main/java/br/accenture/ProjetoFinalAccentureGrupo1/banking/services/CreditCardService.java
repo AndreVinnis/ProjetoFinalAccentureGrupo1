@@ -2,6 +2,7 @@ package br.accenture.ProjetoFinalAccentureGrupo1.banking.services;
 
 import br.accenture.ProjetoFinalAccentureGrupo1.auth.domain.User;
 import br.accenture.ProjetoFinalAccentureGrupo1.auth.repository.UserRepository;
+import br.accenture.ProjetoFinalAccentureGrupo1.banking.accounts.service.AccountService;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.domain.CreditCard;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.domain.CreditCardTransaction;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.dto.CreditCardPurchaseRequest;
@@ -18,7 +19,9 @@ import br.accenture.ProjetoFinalAccentureGrupo1.banking.exceptions.CreditCardNot
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.exceptions.InsufficientCreditLimitException;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.repository.CreditCardRepository;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.repository.CreditCardTransactionRepository;
+import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.events.OrderPaidEvent;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,6 +31,7 @@ import java.math.RoundingMode;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.HexFormat;
 import java.util.List;
@@ -42,6 +46,8 @@ public class CreditCardService {
     private final CreditCardRepository creditCardRepository;
     private final CreditCardTransactionRepository transactionRepository;
     private final CreditCardNumberGenerator cardNumberGenerator;
+    private final AccountService accountService;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
     public CreditCardResponse createVirtualCardForUser(Long userId) {
@@ -113,7 +119,9 @@ public class CreditCardService {
                 .build();
 
         creditCardRepository.save(card);
-        return toTransactionResponse(transactionRepository.save(transaction));
+        CreditCardTransaction savedTx = transactionRepository.save(transaction);
+        settleCreditCardSaleAndNotify(card, savedTx, request.amount());
+        return toTransactionResponse(savedTx);
     }
 
     @Transactional(noRollbackFor = {
@@ -163,7 +171,9 @@ public class CreditCardService {
                 .build();
 
         creditCardRepository.save(card);
-        return toPaymentResponse(transactionRepository.save(transaction), card);
+        CreditCardTransaction savedTx = transactionRepository.save(transaction);
+        settleCreditCardSaleAndNotify(card, savedTx, request.amount());
+        return toPaymentResponse(savedTx, card);
     }
 
     @Transactional(readOnly = true)
@@ -195,6 +205,20 @@ public class CreditCardService {
 
         return creditCardRepository.findByUserId(user.getId())
                 .orElseThrow(() -> new CreditCardNotFoundException(user.getId()));
+    }
+
+    private void settleCreditCardSaleAndNotify(CreditCard card, CreditCardTransaction savedTx, BigDecimal amount) {
+        accountService.creditMerchantForCreditCardSale(amount);
+        User payer = card.getUser();
+        eventPublisher.publishEvent(new OrderPaidEvent(
+                savedTx.getId(),
+                payer.getId(),
+                payer.getName(),
+                payer.getEmail(),
+                amount,
+                "CREDIT_CARD",
+                Instant.now()
+        ));
     }
 
     private CreditCardTransaction saveDeclinedTransaction(
