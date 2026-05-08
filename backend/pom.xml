@@ -189,6 +189,20 @@
                         </goals>
                     </execution>
                 </executions>
+
+                <configuration>
+                    <excludes>
+                        <exclude>**/*Application*</exclude>
+                        <exclude>**/config/**</exclude>
+                        <exclude>**/dto/**</exclude>
+                        <exclude>**/domain/**</exclude>
+                        <exclude>**/exceptions/**</exclude>
+                        <exclude>**/enums/**</exclude>
+                        <exclude>**/events/**</exclude>
+                        <exclude>**/template/**</exclude>
+                        <exclude>**/security/**</exclude>
+                    </excludes>
+                </configuration>
             </plugin>
         </plugins>
     </build>
