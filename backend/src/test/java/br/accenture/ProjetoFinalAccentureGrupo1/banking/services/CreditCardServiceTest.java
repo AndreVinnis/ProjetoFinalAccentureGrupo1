@@ -2,6 +2,7 @@ package br.accenture.ProjetoFinalAccentureGrupo1.banking.services;
 
 import br.accenture.ProjetoFinalAccentureGrupo1.auth.domain.User;
 import br.accenture.ProjetoFinalAccentureGrupo1.auth.repository.UserRepository;
+import br.accenture.ProjetoFinalAccentureGrupo1.banking.accounts.service.AccountService;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.domain.CreditCard;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.domain.CreditCardTransaction;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.dto.CreditCardPurchaseRequest;
@@ -15,6 +16,8 @@ import br.accenture.ProjetoFinalAccentureGrupo1.banking.exceptions.CreditCardBlo
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.exceptions.InsufficientCreditLimitException;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.repository.CreditCardRepository;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.repository.CreditCardTransactionRepository;
+import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.events.OrderPaidEvent;
+import org.springframework.context.ApplicationEventPublisher;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -29,7 +32,9 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class CreditCardServiceTest {
@@ -45,6 +50,12 @@ class CreditCardServiceTest {
 
     @Mock
     private CreditCardNumberGenerator cardNumberGenerator;
+
+    @Mock
+    private AccountService accountService;
+
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
 
     @InjectMocks
     private CreditCardService creditCardService;
@@ -120,6 +131,8 @@ class CreditCardServiceTest {
         assertEquals(new BigDecimal("750.00"), card.getAvailableLimit());
         assertEquals(new BigDecimal("250.00"), card.getInvoiceBalance());
         verify(creditCardRepository).save(card);
+        verify(accountService).creditMerchantForCreditCardSale(new BigDecimal("250.00"));
+        verify(eventPublisher).publishEvent(any(OrderPaidEvent.class));
     }
 
     @Test
@@ -150,6 +163,8 @@ class CreditCardServiceTest {
         assertEquals(new BigDecimal("700.00"), card.getAvailableLimit());
         assertEquals(new BigDecimal("300.00"), card.getInvoiceBalance());
         verify(creditCardRepository).save(card);
+        verify(accountService).creditMerchantForCreditCardSale(new BigDecimal("300.00"));
+        verify(eventPublisher).publishEvent(any(OrderPaidEvent.class));
     }
 
     @Test
@@ -170,6 +185,8 @@ class CreditCardServiceTest {
         assertEquals(CreditCardTransactionStatus.DECLINED, captor.getValue().getStatus());
         assertEquals("Limite insuficiente", captor.getValue().getDeclineReason());
         assertEquals(new BigDecimal("1000.00"), card.getAvailableLimit());
+        verify(accountService, never()).creditMerchantForCreditCardSale(any());
+        verify(eventPublisher, never()).publishEvent(any());
     }
 
     @Test
@@ -190,5 +207,7 @@ class CreditCardServiceTest {
         verify(transactionRepository).save(captor.capture());
         assertEquals(CreditCardTransactionStatus.DECLINED, captor.getValue().getStatus());
         assertEquals("Cartao bloqueado ou cancelado", captor.getValue().getDeclineReason());
+        verify(accountService, never()).creditMerchantForCreditCardSale(any());
+        verify(eventPublisher, never()).publishEvent(any());
     }
 }

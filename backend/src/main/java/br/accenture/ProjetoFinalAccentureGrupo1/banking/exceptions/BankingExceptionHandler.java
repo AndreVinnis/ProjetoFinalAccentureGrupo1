@@ -1,5 +1,7 @@
 package br.accenture.ProjetoFinalAccentureGrupo1.banking.exceptions;
 
+import br.accenture.ProjetoFinalAccentureGrupo1.banking.accounts.exceptions.BankAccountInsufficientFundsException;
+import br.accenture.ProjetoFinalAccentureGrupo1.banking.accounts.exceptions.BankAccountNotFoundException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -9,6 +11,16 @@ import java.time.Instant;
 
 @RestControllerAdvice
 public class BankingExceptionHandler {
+
+    @ExceptionHandler(BankAccountNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleBankAccountNotFound(BankAccountNotFoundException ex) {
+        return error(HttpStatus.NOT_FOUND, ex.getMessage());
+    }
+
+    @ExceptionHandler(BankAccountInsufficientFundsException.class)
+    public ResponseEntity<ErrorResponse> handleBankAccountInsufficientFunds(BankAccountInsufficientFundsException ex) {
+        return error(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage());
+    }
 
     @ExceptionHandler(CreditCardNotFoundException.class)
     public ResponseEntity<ErrorResponse> handleCreditCardNotFound(CreditCardNotFoundException ex) {
