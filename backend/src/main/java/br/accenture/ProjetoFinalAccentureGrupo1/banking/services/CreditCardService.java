@@ -2,8 +2,12 @@ package br.accenture.ProjetoFinalAccentureGrupo1.banking.services;
 
 import br.accenture.ProjetoFinalAccentureGrupo1.auth.domain.User;
 import br.accenture.ProjetoFinalAccentureGrupo1.auth.repository.UserRepository;
+import br.accenture.ProjetoFinalAccentureGrupo1.banking.domain.Account;
+import br.accenture.ProjetoFinalAccentureGrupo1.banking.domain.CardPurchase;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.domain.CreditCard;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.domain.CreditCardTransaction;
+import br.accenture.ProjetoFinalAccentureGrupo1.banking.domain.Invoice;
+import br.accenture.ProjetoFinalAccentureGrupo1.banking.dto.CardPurchaseResponse;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.dto.CreditCardPurchaseRequest;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.dto.CreditCardResponse;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.dto.CreditCardTransactionResponse;
@@ -14,8 +18,10 @@ import br.accenture.ProjetoFinalAccentureGrupo1.banking.exceptions.CreditCardAlr
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.exceptions.CreditCardBlockedException;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.exceptions.CreditCardNotFoundException;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.exceptions.InsufficientCreditLimitException;
+import br.accenture.ProjetoFinalAccentureGrupo1.banking.repository.CardPurchaseRepository;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.repository.CreditCardRepository;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.repository.CreditCardTransactionRepository;
+import br.accenture.ProjetoFinalAccentureGrupo1.banking.repository.InvoiceRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
@@ -38,7 +44,11 @@ public class CreditCardService {
     private final UserRepository userRepository;
     private final CreditCardRepository creditCardRepository;
     private final CreditCardTransactionRepository transactionRepository;
+    private final CardPurchaseRepository cardPurchaseRepository;
+    private final InvoiceRepository invoiceRepository;
     private final CreditCardNumberGenerator cardNumberGenerator;
+    private final InvoiceService invoiceService;
+    private final AccountService accountService;
 
     @Transactional
     public CreditCardResponse createVirtualCardForUser(Long userId) {
@@ -49,12 +59,29 @@ public class CreditCardService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new UsernameNotFoundException("Usuario nao encontrado: " + userId));
 
+        return createCard(user, null);
+    }
+
+    @Transactional
+    public CreditCardResponse createCardForAccount(Account account) {
+        if (creditCardRepository.existsByUserId(account.getUserId())) {
+            throw new CreditCardAlreadyExistsException(account.getUserId());
+        }
+
+        User user = userRepository.findById(account.getUserId())
+                .orElseThrow(() -> new UsernameNotFoundException("Usuario nao encontrado: " + account.getUserId()));
+
+        return createCard(user, account);
+    }
+
+    private CreditCardResponse createCard(User user, Account account) {
         LocalDate expirationDate = LocalDate.now().plusYears(5);
         String cardNumber = cardNumberGenerator.generateCardNumber();
         String cvv = cardNumberGenerator.generateCvv();
 
         CreditCard card = CreditCard.builder()
                 .user(user)
+                .account(account)
                 .holderName(user.getName())
                 .numberHash(hash(cardNumber))
                 .lastFourDigits(cardNumber.substring(cardNumber.length() - 4))
@@ -65,6 +92,8 @@ public class CreditCardService {
                 .creditLimit(INITIAL_CREDIT_LIMIT)
                 .availableLimit(INITIAL_CREDIT_LIMIT)
                 .invoiceBalance(BigDecimal.ZERO)
+                .closingDay(25)
+                .dueDay(10)
                 .build();
 
         return toCardResponse(creditCardRepository.save(card));
@@ -98,6 +127,8 @@ public class CreditCardService {
 
         card.setAvailableLimit(card.getAvailableLimit().subtract(request.amount()));
         card.setInvoiceBalance(card.getInvoiceBalance().add(request.amount()));
+        Invoice invoice = invoiceService.getOrCreateOpenInvoice(card);
+        invoice.setTotalAmount(invoice.getTotalAmount().add(request.amount()));
 
         CreditCardTransaction transaction = CreditCardTransaction.builder()
                 .creditCard(card)
@@ -107,8 +138,40 @@ public class CreditCardService {
                 .status(CreditCardTransactionStatus.APPROVED)
                 .build();
 
+        CardPurchase purchase = CardPurchase.builder()
+                .card(card)
+                .invoice(invoice)
+                .amount(request.amount())
+                .description(request.description())
+                .reference(request.reference())
+                .build();
+
         creditCardRepository.save(card);
+        invoiceRepository.save(invoice);
+        cardPurchaseRepository.save(purchase);
+        accountService.creditMerchant(request.amount(), request.reference(), "Compra no cartao: " + request.description());
         return toTransactionResponse(transactionRepository.save(transaction));
+    }
+
+    @Transactional
+    public CreditCardTransactionResponse chargeCard(Long userId, BigDecimal amount, String description, String reference) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new UsernameNotFoundException("Usuario nao encontrado: " + userId));
+        return purchase(user.getEmail(), new CreditCardPurchaseRequest(amount, "Loja Accenture", description, reference));
+    }
+
+    @Transactional(readOnly = true)
+    public List<CardPurchaseResponse> findMyPurchases(String email) {
+        CreditCard card = findCardByUserEmail(email);
+        return cardPurchaseRepository.findByCardIdOrderByPurchaseDateDesc(card.getId())
+                .stream()
+                .map(this::toPurchaseResponse)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public CreditCard findMyCardEntity(String email) {
+        return findCardByUserEmail(email);
     }
 
     @Transactional(readOnly = true)
@@ -186,6 +249,17 @@ public class CreditCardService {
                 transaction.getStatus(),
                 transaction.getDeclineReason(),
                 transaction.getCreatedAt()
+        );
+    }
+
+    private CardPurchaseResponse toPurchaseResponse(CardPurchase purchase) {
+        return new CardPurchaseResponse(
+                purchase.getId(),
+                purchase.getInvoice().getId(),
+                purchase.getAmount(),
+                purchase.getDescription(),
+                purchase.getReference(),
+                purchase.getPurchaseDate()
         );
     }
 

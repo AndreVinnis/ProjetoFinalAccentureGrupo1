@@ -1,5 +1,6 @@
 package br.accenture.ProjetoFinalAccentureGrupo1.banking.controllers;
 
+import br.accenture.ProjetoFinalAccentureGrupo1.banking.dto.CardPurchaseResponse;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.dto.CreditCardPurchaseRequest;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.dto.CreditCardResponse;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.dto.CreditCardTransactionResponse;
@@ -34,13 +35,21 @@ public class CreditCardController {
         return ResponseEntity.ok(creditCardService.findMyLimit(userDetails.getUsername()));
     }
 
-    @PostMapping("/me/purchases")
+    @PostMapping("/me/charges")
     @PreAuthorize("hasRole('CUSTOMER')")
     public ResponseEntity<CreditCardTransactionResponse> purchase(
             @AuthenticationPrincipal UserDetails userDetails,
             @RequestBody @Valid CreditCardPurchaseRequest request
     ) {
         return ResponseEntity.ok(creditCardService.purchase(userDetails.getUsername(), request));
+    }
+
+    @GetMapping("/me/purchases")
+    @PreAuthorize("hasRole('CUSTOMER')")
+    public ResponseEntity<List<CardPurchaseResponse>> findMyPurchases(
+            @AuthenticationPrincipal UserDetails userDetails
+    ) {
+        return ResponseEntity.ok(creditCardService.findMyPurchases(userDetails.getUsername()));
     }
 
     @GetMapping("/me/transactions")
