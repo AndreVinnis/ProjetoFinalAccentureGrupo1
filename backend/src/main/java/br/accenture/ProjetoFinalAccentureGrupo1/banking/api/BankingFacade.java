@@ -14,7 +14,6 @@ public interface BankingFacade {
 
     AccountInfo getAccountInfo(Long userId);
 
-    /** Débito do saldo em conta corrente do cliente. */
     void chargeCard(Long userId, BigDecimal amount, String description, String reference);
 
     void issueRefund(Long toUserId, BigDecimal amount, String description);
@@ -27,4 +26,10 @@ public interface BankingFacade {
      * @return código UUID que o pagador usa pra confirmar
      */
     String createPaymentRequest(BigDecimal amount, String description, String reference);
+
+    /**
+     * Cancela uma cobrança PIX em PENDING (ex: pedido cancelado antes de pagar).
+     * Sem efeito financeiro — apenas muda o status.
+     */
+    void cancelPaymentRequest(String code);
 }

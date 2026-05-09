@@ -10,4 +10,6 @@ public interface UserFacade {
     boolean exists(Long userId);
 
     boolean hasRole(Long userId, Role role);
+
+    UserInfo findByEmail(String email);
 }

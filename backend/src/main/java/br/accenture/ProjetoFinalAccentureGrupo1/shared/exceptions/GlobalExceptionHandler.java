@@ -1,8 +1,9 @@
-package br.accenture.ProjetoFinalAccentureGrupo1.auth.exceptions;
+package br.accenture.ProjetoFinalAccentureGrupo1.shared.exceptions;
 
-import br.accenture.ProjetoFinalAccentureGrupo1.banking.exceptions.AccountNotActiveException;
-import br.accenture.ProjetoFinalAccentureGrupo1.banking.exceptions.AccountNotFoundException;
-import br.accenture.ProjetoFinalAccentureGrupo1.banking.exceptions.InsufficientBalanceException;
+import br.accenture.ProjetoFinalAccentureGrupo1.auth.exceptions.CpfAlreadyExistsException;
+import br.accenture.ProjetoFinalAccentureGrupo1.auth.exceptions.EmailAlreadyExistsException;
+import br.accenture.ProjetoFinalAccentureGrupo1.auth.exceptions.UserNotFoundException;
+import br.accenture.ProjetoFinalAccentureGrupo1.banking.exceptions.*;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -64,6 +65,16 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(AccountNotActiveException.class)
     public ResponseEntity<ErrorResponse> handleAccountNotActive(AccountNotActiveException ex) {
+        return error(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage());
+    }
+
+    @ExceptionHandler(PaymentRequestNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handlePaymentRequestNotFound(PaymentRequestNotFoundException ex) {
+        return error(HttpStatus.NOT_FOUND, ex.getMessage());
+    }
+
+    @ExceptionHandler(PaymentRequestNotPayableException.class)
+    public ResponseEntity<ErrorResponse> handlePaymentRequestNotPayable(PaymentRequestNotPayableException ex) {
         return error(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage());
     }
 
