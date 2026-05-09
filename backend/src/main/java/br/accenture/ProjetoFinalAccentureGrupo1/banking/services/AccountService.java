@@ -9,7 +9,13 @@ import br.accenture.ProjetoFinalAccentureGrupo1.banking.dto.TransactionResponse;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.enums.AccountStatus;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.enums.AccountType;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.enums.TransactionType;
-import br.accenture.ProjetoFinalAccentureGrupo1.banking.exceptions.*;
+import br.accenture.ProjetoFinalAccentureGrupo1.banking.exceptions.AccountAlreadyExistsException;
+import br.accenture.ProjetoFinalAccentureGrupo1.banking.exceptions.AccountBlockedException;
+import br.accenture.ProjetoFinalAccentureGrupo1.banking.exceptions.AccountNotActiveException;
+import br.accenture.ProjetoFinalAccentureGrupo1.banking.exceptions.AccountNotFoundException;
+import br.accenture.ProjetoFinalAccentureGrupo1.banking.exceptions.AccountRestrictedException;
+import br.accenture.ProjetoFinalAccentureGrupo1.banking.exceptions.InsufficientBalanceException;
+import br.accenture.ProjetoFinalAccentureGrupo1.banking.exceptions.InvalidAmountException;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.repository.AccountRepository;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.repository.TransactionRepository;
 import lombok.RequiredArgsConstructor;
@@ -32,28 +38,22 @@ public class AccountService {
     private final AccountNumberGenerator accountNumberGenerator;
 
     @Transactional
+    public Account createForUser(Long userId) {
+        return accountRepository.findByUserId(userId)
+                .orElseGet(() -> createCustomerAccount(userId));
+    }
+
+    @Transactional
     public Account createAccountForUser(Long userId) {
         if (accountRepository.existsByUserId(userId)) {
             throw new AccountAlreadyExistsException(userId);
         }
-
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new UsernameNotFoundException("Usuario nao encontrado: " + userId));
-
-        Account account = Account.builder()
-                .userId(user.getId())
-                .accountNumber(generateUniqueAccountNumber())
-                .balance(BigDecimal.ZERO)
-                .accountType(AccountType.CUSTOMER)
-                .status(AccountStatus.ACTIVE)
-                .build();
-
-        return accountRepository.save(account);
+        return createCustomerAccount(userId);
     }
 
     @Transactional
     public Account createMerchantAccountIfMissing() {
-        return accountRepository.findByAccountType(AccountType.MERCHANT)
+        return accountRepository.findFirstByAccountType(AccountType.MERCHANT)
                 .orElseGet(() -> accountRepository.save(Account.builder()
                         .accountNumber(generateUniqueAccountNumber())
                         .balance(MERCHANT_INITIAL_BALANCE)
@@ -69,7 +69,7 @@ public class AccountService {
 
     @Transactional(readOnly = true)
     public BigDecimal getBalance(Long userId) {
-        return findAccountByUserId(userId).getBalance();
+        return findByUserId(userId).getBalance();
     }
 
     @Transactional(readOnly = true)
@@ -87,8 +87,17 @@ public class AccountService {
     }
 
     @Transactional
+    public Account debit(Account account, BigDecimal amount) {
+        validatePositiveAmount(amount);
+        ensureCanDebit(account);
+        ensureSufficientBalance(account, amount);
+        debitAccount(account, amount, null, "Debito em conta", TransactionType.PAYMENT);
+        return accountRepository.save(account);
+    }
+
+    @Transactional
     public void debit(Long userId, BigDecimal amount, String reference) {
-        Account account = findAccountByUserId(userId);
+        Account account = findByUserId(userId);
         validatePositiveAmount(amount);
         ensureCanDebit(account);
         ensureSufficientBalance(account, amount);
@@ -98,17 +107,25 @@ public class AccountService {
 
     @Transactional
     public void debitInvoicePayment(Long userId, BigDecimal amount, String reference, String description) {
-        Account account = findAccountByUserId(userId);
+        Account account = findByUserId(userId);
         validatePositiveAmount(amount);
-        ensureNotBlocked(account);
+        ensureCanDebit(account);
         ensureSufficientBalance(account, amount);
         debitAccount(account, amount, reference, description, TransactionType.PAYMENT);
         accountRepository.save(account);
     }
 
     @Transactional
+    public Account credit(Account account, BigDecimal amount) {
+        validatePositiveAmount(amount);
+        ensureNotBlocked(account);
+        creditAccount(account, amount, null, "Credito em conta", TransactionType.REFUND);
+        return accountRepository.save(account);
+    }
+
+    @Transactional
     public void credit(Long userId, BigDecimal amount, String reference) {
-        Account account = findAccountByUserId(userId);
+        Account account = findByUserId(userId);
         validatePositiveAmount(amount);
         ensureNotBlocked(account);
         creditAccount(account, amount, reference, "Credito em conta", TransactionType.REFUND);
@@ -117,12 +134,17 @@ public class AccountService {
 
     @Transactional
     public void creditMerchant(BigDecimal amount, String reference, String description) {
-        Account merchant = accountRepository.findByAccountType(AccountType.MERCHANT)
+        Account merchant = accountRepository.findFirstByAccountType(AccountType.MERCHANT)
                 .orElseGet(this::createMerchantAccountIfMissing);
         validatePositiveAmount(amount);
         ensureNotBlocked(merchant);
         creditAccount(merchant, amount, reference, description, TransactionType.PAYMENT);
         accountRepository.save(merchant);
+    }
+
+    @Transactional
+    public void creditMerchantForCreditCardSale(BigDecimal amount) {
+        creditMerchant(amount, null, "Venda aprovada no cartao de credito");
     }
 
     @Transactional(readOnly = true)
@@ -134,15 +156,35 @@ public class AccountService {
                 .toList();
     }
 
-    public Account findAccountByUserId(Long userId) {
+    @Transactional(readOnly = true)
+    public Account findByUserId(Long userId) {
         return accountRepository.findByUserId(userId)
                 .orElseThrow(() -> new AccountNotFoundException(userId));
+    }
+
+    public Account findAccountByUserId(Long userId) {
+        return findByUserId(userId);
+    }
+
+    private Account createCustomerAccount(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new UsernameNotFoundException("Usuario nao encontrado: " + userId));
+
+        Account account = Account.builder()
+                .userId(user.getId())
+                .accountNumber(generateUniqueAccountNumber())
+                .balance(BigDecimal.ZERO)
+                .accountType(AccountType.CUSTOMER)
+                .status(AccountStatus.ACTIVE)
+                .build();
+
+        return accountRepository.save(account);
     }
 
     private Account findAccountByUserEmail(String email) {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new UsernameNotFoundException("Usuario nao encontrado: " + email));
-        return findAccountByUserId(user.getId());
+        return findByUserId(user.getId());
     }
 
     private void creditAccount(Account account, BigDecimal amount, String reference, String description, TransactionType type) {
@@ -183,11 +225,14 @@ public class AccountService {
         if (account.getStatus() == AccountStatus.RESTRICTED) {
             throw new AccountRestrictedException();
         }
+        if (account.getStatus() != AccountStatus.ACTIVE) {
+            throw new AccountNotActiveException(account.getStatus());
+        }
     }
 
     private void ensureSufficientBalance(Account account, BigDecimal amount) {
         if (account.getBalance().compareTo(amount) < 0) {
-            throw new InsufficientBalanceException();
+            throw new InsufficientBalanceException(account.getBalance(), amount);
         }
     }
 

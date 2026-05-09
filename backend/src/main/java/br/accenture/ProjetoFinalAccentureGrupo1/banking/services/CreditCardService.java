@@ -12,6 +12,8 @@ import br.accenture.ProjetoFinalAccentureGrupo1.banking.dto.CreditCardPurchaseRe
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.dto.CreditCardResponse;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.dto.CreditCardTransactionResponse;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.dto.CreditLimitResponse;
+import br.accenture.ProjetoFinalAccentureGrupo1.banking.dto.CreditPaymentRequest;
+import br.accenture.ProjetoFinalAccentureGrupo1.banking.dto.CreditPaymentResponse;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.enums.CreditCardStatus;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.enums.CreditCardTransactionStatus;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.exceptions.CreditCardAlreadyExistsException;
@@ -22,15 +24,19 @@ import br.accenture.ProjetoFinalAccentureGrupo1.banking.repository.CardPurchaseR
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.repository.CreditCardRepository;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.repository.CreditCardTransactionRepository;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.repository.InvoiceRepository;
+import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.events.OrderPaidEvent;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.HexFormat;
 import java.util.List;
@@ -49,6 +55,7 @@ public class CreditCardService {
     private final CreditCardNumberGenerator cardNumberGenerator;
     private final InvoiceService invoiceService;
     private final AccountService accountService;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
     public CreditCardResponse createVirtualCardForUser(Long userId) {
@@ -74,31 +81,6 @@ public class CreditCardService {
         return createCard(user, account);
     }
 
-    private CreditCardResponse createCard(User user, Account account) {
-        LocalDate expirationDate = LocalDate.now().plusYears(5);
-        String cardNumber = cardNumberGenerator.generateCardNumber();
-        String cvv = cardNumberGenerator.generateCvv();
-
-        CreditCard card = CreditCard.builder()
-                .user(user)
-                .account(account)
-                .holderName(user.getName())
-                .numberHash(hash(cardNumber))
-                .lastFourDigits(cardNumber.substring(cardNumber.length() - 4))
-                .cvvHash(hash(cvv))
-                .expirationMonth(expirationDate.getMonthValue())
-                .expirationYear(expirationDate.getYear())
-                .status(CreditCardStatus.ACTIVE)
-                .creditLimit(INITIAL_CREDIT_LIMIT)
-                .availableLimit(INITIAL_CREDIT_LIMIT)
-                .invoiceBalance(BigDecimal.ZERO)
-                .closingDay(25)
-                .dueDay(10)
-                .build();
-
-        return toCardResponse(creditCardRepository.save(card));
-    }
-
     @Transactional(readOnly = true)
     public CreditCardResponse findMyCard(String email) {
         CreditCard card = findCardByUserEmail(email);
@@ -114,43 +96,35 @@ public class CreditCardService {
     @Transactional(noRollbackFor = {CreditCardBlockedException.class, InsufficientCreditLimitException.class})
     public CreditCardTransactionResponse purchase(String email, CreditCardPurchaseRequest request) {
         CreditCard card = findCardByUserEmail(email);
+        validateCardCanPurchase(card, request.amount(), request.merchantName(), request.description(), 1);
 
-        if (card.getStatus() != CreditCardStatus.ACTIVE) {
-            saveDeclinedTransaction(card, request, "Cartao bloqueado ou cancelado");
-            throw new CreditCardBlockedException();
-        }
+        CreditCardTransaction savedTx = approvePurchase(
+                card,
+                request.amount(),
+                1,
+                request.merchantName(),
+                request.description(),
+                request.reference()
+        );
 
-        if (card.getAvailableLimit().compareTo(request.amount()) < 0) {
-            saveDeclinedTransaction(card, request, "Limite insuficiente");
-            throw new InsufficientCreditLimitException();
-        }
+        return toTransactionResponse(savedTx);
+    }
 
-        card.setAvailableLimit(card.getAvailableLimit().subtract(request.amount()));
-        card.setInvoiceBalance(card.getInvoiceBalance().add(request.amount()));
-        Invoice invoice = invoiceService.getOrCreateOpenInvoice(card);
-        invoice.setTotalAmount(invoice.getTotalAmount().add(request.amount()));
+    @Transactional(noRollbackFor = {CreditCardBlockedException.class, InsufficientCreditLimitException.class})
+    public CreditPaymentResponse payWithCredit(String email, CreditPaymentRequest request) {
+        CreditCard card = findCardByUserEmail(email);
+        validateCardCanPurchase(card, request.amount(), request.merchantName(), request.description(), request.installments());
 
-        CreditCardTransaction transaction = CreditCardTransaction.builder()
-                .creditCard(card)
-                .amount(request.amount())
-                .merchantName(request.merchantName())
-                .description(request.description())
-                .status(CreditCardTransactionStatus.APPROVED)
-                .build();
+        CreditCardTransaction savedTx = approvePurchase(
+                card,
+                request.amount(),
+                request.installments(),
+                request.merchantName(),
+                request.description(),
+                null
+        );
 
-        CardPurchase purchase = CardPurchase.builder()
-                .card(card)
-                .invoice(invoice)
-                .amount(request.amount())
-                .description(request.description())
-                .reference(request.reference())
-                .build();
-
-        creditCardRepository.save(card);
-        invoiceRepository.save(invoice);
-        cardPurchaseRepository.save(purchase);
-        accountService.creditMerchant(request.amount(), request.reference(), "Compra no cartao: " + request.description());
-        return toTransactionResponse(transactionRepository.save(transaction));
+        return toPaymentResponse(savedTx, card);
     }
 
     @Transactional
@@ -197,6 +171,94 @@ public class CreditCardService {
         return toCardResponse(creditCardRepository.save(card));
     }
 
+    private CreditCardResponse createCard(User user, Account account) {
+        LocalDate expirationDate = LocalDate.now().plusYears(5);
+        String cardNumber = cardNumberGenerator.generateCardNumber();
+        String cvv = cardNumberGenerator.generateCvv();
+
+        CreditCard card = CreditCard.builder()
+                .user(user)
+                .account(account)
+                .holderName(user.getName())
+                .numberHash(hash(cardNumber))
+                .lastFourDigits(cardNumber.substring(cardNumber.length() - 4))
+                .cvvHash(hash(cvv))
+                .expirationMonth(expirationDate.getMonthValue())
+                .expirationYear(expirationDate.getYear())
+                .status(CreditCardStatus.ACTIVE)
+                .creditLimit(INITIAL_CREDIT_LIMIT)
+                .availableLimit(INITIAL_CREDIT_LIMIT)
+                .invoiceBalance(BigDecimal.ZERO)
+                .closingDay(25)
+                .dueDay(10)
+                .build();
+
+        return toCardResponse(creditCardRepository.save(card));
+    }
+
+    private CreditCardTransaction approvePurchase(
+            CreditCard card,
+            BigDecimal amount,
+            Integer installments,
+            String merchantName,
+            String description,
+            String reference
+    ) {
+        BigDecimal installmentAmount = calculateInstallmentAmount(amount, installments);
+
+        card.setAvailableLimit(card.getAvailableLimit().subtract(amount));
+        card.setInvoiceBalance(card.getInvoiceBalance().add(amount));
+
+        Invoice invoice = invoiceService.getOrCreateOpenInvoice(card);
+        invoice.setTotalAmount(invoice.getTotalAmount().add(amount));
+
+        CreditCardTransaction transaction = CreditCardTransaction.builder()
+                .creditCard(card)
+                .amount(amount)
+                .merchantName(merchantName)
+                .description(description)
+                .installments(installments)
+                .installmentAmount(installmentAmount)
+                .status(CreditCardTransactionStatus.APPROVED)
+                .build();
+
+        CardPurchase purchase = CardPurchase.builder()
+                .card(card)
+                .invoice(invoice)
+                .amount(amount)
+                .description(description)
+                .reference(reference)
+                .build();
+
+        creditCardRepository.save(card);
+        invoiceRepository.save(invoice);
+        cardPurchaseRepository.save(purchase);
+        CreditCardTransaction savedTx = transactionRepository.save(transaction);
+
+        accountService.creditMerchant(amount, reference, "Compra no cartao: " + description);
+        publishOrderPaid(card, savedTx, amount);
+
+        return savedTx;
+    }
+
+    private void validateCardCanPurchase(
+            CreditCard card,
+            BigDecimal amount,
+            String merchantName,
+            String description,
+            Integer installments
+    ) {
+        if (card.getStatus() != CreditCardStatus.ACTIVE) {
+            saveDeclinedTransaction(card, amount, installments, merchantName, description, "Cartao bloqueado ou cancelado");
+            throw new CreditCardBlockedException();
+        }
+
+        if (card.getAvailableLimit().compareTo(amount) < 0) {
+            saveDeclinedTransaction(card, amount, installments, merchantName, description, "Limite insuficiente");
+            throw new InsufficientCreditLimitException();
+        }
+    }
+
     private CreditCard findCardByUserEmail(String email) {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new UsernameNotFoundException("Usuario nao encontrado: " + email));
@@ -205,16 +267,38 @@ public class CreditCardService {
                 .orElseThrow(() -> new CreditCardNotFoundException(user.getId()));
     }
 
-    private void saveDeclinedTransaction(CreditCard card, CreditCardPurchaseRequest request, String reason) {
+    private void publishOrderPaid(CreditCard card, CreditCardTransaction savedTx, BigDecimal amount) {
+        User payer = card.getUser();
+        eventPublisher.publishEvent(new OrderPaidEvent(
+                savedTx.getId(),
+                payer.getId(),
+                payer.getName(),
+                payer.getEmail(),
+                amount,
+                "CREDIT_CARD",
+                Instant.now()
+        ));
+    }
+
+    private CreditCardTransaction saveDeclinedTransaction(
+            CreditCard card,
+            BigDecimal amount,
+            Integer installments,
+            String merchantName,
+            String description,
+            String reason
+    ) {
         CreditCardTransaction transaction = CreditCardTransaction.builder()
                 .creditCard(card)
-                .amount(request.amount())
-                .merchantName(request.merchantName())
-                .description(request.description())
+                .amount(amount)
+                .merchantName(merchantName)
+                .description(description)
+                .installments(installments)
+                .installmentAmount(calculateInstallmentAmount(amount, installments))
                 .status(CreditCardTransactionStatus.DECLINED)
                 .declineReason(reason)
                 .build();
-        transactionRepository.save(transaction);
+        return transactionRepository.save(transaction);
     }
 
     private CreditCardResponse toCardResponse(CreditCard card) {
@@ -244,10 +328,28 @@ public class CreditCardService {
         return new CreditCardTransactionResponse(
                 transaction.getId(),
                 transaction.getAmount(),
+                transaction.getInstallments(),
+                transaction.getInstallmentAmount(),
                 transaction.getMerchantName(),
                 transaction.getDescription(),
                 transaction.getStatus(),
                 transaction.getDeclineReason(),
+                transaction.getCreatedAt()
+        );
+    }
+
+    private CreditPaymentResponse toPaymentResponse(CreditCardTransaction transaction, CreditCard card) {
+        return new CreditPaymentResponse(
+                transaction.getId(),
+                transaction.getAmount(),
+                transaction.getInstallments(),
+                transaction.getInstallmentAmount(),
+                transaction.getMerchantName(),
+                transaction.getDescription(),
+                transaction.getStatus(),
+                transaction.getDeclineReason(),
+                card.getAvailableLimit(),
+                card.getInvoiceBalance(),
                 transaction.getCreatedAt()
         );
     }
@@ -261,6 +363,11 @@ public class CreditCardService {
                 purchase.getReference(),
                 purchase.getPurchaseDate()
         );
+    }
+
+    private BigDecimal calculateInstallmentAmount(BigDecimal amount, Integer installments) {
+        int installmentCount = installments == null || installments <= 0 ? 1 : installments;
+        return amount.divide(BigDecimal.valueOf(installmentCount), 2, RoundingMode.HALF_UP);
     }
 
     private String hash(String value) {

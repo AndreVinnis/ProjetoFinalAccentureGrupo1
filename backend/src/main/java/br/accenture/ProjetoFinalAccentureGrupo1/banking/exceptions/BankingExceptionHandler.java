@@ -42,13 +42,20 @@ public class BankingExceptionHandler {
 
     @ExceptionHandler({
             AccountBlockedException.class,
+            AccountNotActiveException.class,
             AccountRestrictedException.class,
             InsufficientBalanceException.class,
             InvalidAmountException.class,
-            InvalidInvoicePaymentException.class
+            InvalidInvoicePaymentException.class,
+            PaymentRequestNotPayableException.class
     })
-    public ResponseEntity<ErrorResponse> handleAccountBusinessRule(RuntimeException ex) {
+    public ResponseEntity<ErrorResponse> handleBusinessRule(RuntimeException ex) {
         return error(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage());
+    }
+
+    @ExceptionHandler(PaymentRequestNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handlePaymentRequestNotFound(PaymentRequestNotFoundException ex) {
+        return error(HttpStatus.NOT_FOUND, ex.getMessage());
     }
 
     @ExceptionHandler(InsufficientCreditLimitException.class)

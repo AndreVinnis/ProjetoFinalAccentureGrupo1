@@ -39,7 +39,7 @@ public class InvoiceService {
     @Transactional
     public Invoice getOrCreateOpenInvoice(CreditCard card) {
         return invoiceRepository.findByCardIdAndStatus(card.getId(), InvoiceStatus.OPEN)
-                .orElseGet(() -> invoiceRepository.save(newOpenInvoice(card)));
+                .orElseGet(() -> invoiceRepository.save(newOpenInvoiceForNextAvailableMonth(card)));
     }
 
     @Transactional
@@ -122,9 +122,15 @@ public class InvoiceService {
         );
     }
 
-    private Invoice newOpenInvoice(CreditCard card) {
-        LocalDate today = LocalDate.now(clock);
-        YearMonth referenceMonth = YearMonth.from(today);
+    private Invoice newOpenInvoiceForNextAvailableMonth(CreditCard card) {
+        YearMonth referenceMonth = YearMonth.from(LocalDate.now(clock));
+        while (invoiceRepository.findByCardIdAndReferenceMonth(card.getId(), referenceMonth).isPresent()) {
+            referenceMonth = referenceMonth.plusMonths(1);
+        }
+        return newOpenInvoice(card, referenceMonth);
+    }
+
+    private Invoice newOpenInvoice(CreditCard card, YearMonth referenceMonth) {
         LocalDate closingDate = safeDate(referenceMonth, card.getClosingDay(), 25);
         LocalDate dueDate = safeDate(referenceMonth.plusMonths(1), card.getDueDay(), 10);
 

@@ -1,5 +1,9 @@
-package br.accenture.ProjetoFinalAccentureGrupo1.auth.exceptions;
+package br.accenture.ProjetoFinalAccentureGrupo1.shared.exceptions;
 
+import br.accenture.ProjetoFinalAccentureGrupo1.auth.exceptions.CpfAlreadyExistsException;
+import br.accenture.ProjetoFinalAccentureGrupo1.auth.exceptions.EmailAlreadyExistsException;
+import br.accenture.ProjetoFinalAccentureGrupo1.auth.exceptions.UserNotFoundException;
+import br.accenture.ProjetoFinalAccentureGrupo1.banking.exceptions.*;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -47,6 +51,31 @@ public class GlobalExceptionHandler {
         body.put("error", "Validation failed");
         body.put("fields", fieldErrors);
         return ResponseEntity.badRequest().body(body);
+    }
+
+    @ExceptionHandler(AccountNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleAccountNotFound(AccountNotFoundException ex) {
+        return error(HttpStatus.NOT_FOUND, ex.getMessage());
+    }
+
+    @ExceptionHandler(InsufficientBalanceException.class)
+    public ResponseEntity<ErrorResponse> handleInsufficientBalance(InsufficientBalanceException ex) {
+        return error(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage());
+    }
+
+    @ExceptionHandler(AccountNotActiveException.class)
+    public ResponseEntity<ErrorResponse> handleAccountNotActive(AccountNotActiveException ex) {
+        return error(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage());
+    }
+
+    @ExceptionHandler(PaymentRequestNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handlePaymentRequestNotFound(PaymentRequestNotFoundException ex) {
+        return error(HttpStatus.NOT_FOUND, ex.getMessage());
+    }
+
+    @ExceptionHandler(PaymentRequestNotPayableException.class)
+    public ResponseEntity<ErrorResponse> handlePaymentRequestNotPayable(PaymentRequestNotPayableException ex) {
+        return error(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage());
     }
 
     private ResponseEntity<ErrorResponse> error(HttpStatus status, String message) {

@@ -159,4 +159,27 @@ class InvoiceServiceTest {
         verify(accountService, never()).debitInvoicePayment(any(), any(), any(), any());
         verify(eventPublisher, never()).publishEvent(any());
     }
+
+    @Test
+    void getCurrentInvoice_DeveCriarProximoMes_QuandoMesAtualJaTemFaturaPaga() {
+        invoice.setStatus(InvoiceStatus.PAID);
+
+        when(invoiceRepository.findByCardIdAndStatus(10L, InvoiceStatus.OPEN)).thenReturn(Optional.empty());
+        when(invoiceRepository.findByCardIdAndReferenceMonth(10L, YearMonth.of(2026, 5)))
+                .thenReturn(Optional.of(invoice));
+        when(invoiceRepository.findByCardIdAndReferenceMonth(10L, YearMonth.of(2026, 6)))
+                .thenReturn(Optional.empty());
+        when(invoiceRepository.save(any(Invoice.class))).thenAnswer(invocation -> {
+            Invoice saved = invocation.getArgument(0);
+            saved.setId(21L);
+            return saved;
+        });
+
+        InvoiceResponse response = invoiceService.getCurrentInvoice(card);
+
+        assertEquals(InvoiceStatus.OPEN, response.status());
+        assertEquals(YearMonth.of(2026, 6), response.referenceMonth());
+        assertEquals(LocalDate.of(2026, 6, 25), response.closingDate());
+        assertEquals(LocalDate.of(2026, 7, 10), response.dueDate());
+    }
 }

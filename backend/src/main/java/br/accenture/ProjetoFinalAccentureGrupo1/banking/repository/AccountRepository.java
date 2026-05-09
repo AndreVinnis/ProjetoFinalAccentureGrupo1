@@ -12,9 +12,15 @@ public interface AccountRepository extends JpaRepository<Account, Long> {
 
     Optional<Account> findByUserId(Long userId);
 
+    Optional<Account> findByAccountNumber(String accountNumber);
+
     Optional<Account> findByAccountType(AccountType accountType);
+
+    Optional<Account> findFirstByAccountType(AccountType accountType);
 
     boolean existsByUserId(Long userId);
 
     boolean existsByAccountNumber(String accountNumber);
+
+    long countByAccountType(AccountType accountType);
 }
