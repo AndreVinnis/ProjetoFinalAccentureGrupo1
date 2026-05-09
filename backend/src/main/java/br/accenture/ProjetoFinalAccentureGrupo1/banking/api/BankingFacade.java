@@ -1,4 +1,4 @@
-package br.accenture.ProjetoFinalAccentureGrupo1.banking.accounts.api;
+package br.accenture.ProjetoFinalAccentureGrupo1.banking.api;
 
 import java.math.BigDecimal;
 
