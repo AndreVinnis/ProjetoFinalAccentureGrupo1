@@ -18,21 +18,18 @@ import java.util.List;
 public class AdminAccountController {
 
     private final AccountService accountService;
-    private final TransactionService transactionService; // <-- Injetando o novo serviço
+    private final TransactionService transactionService;
 
-    // GET /banking/admin/accounts - Lista todas as contas
     @GetMapping
     public List<AccountResponse> getAllAccounts() {
         return accountService.findAllAccounts();
     }
 
-    // GET /banking/admin/accounts/transactions - Lista TODAS as transações do sistema (Novo endpoint do áudio)
     @GetMapping("/transactions")
     public List<Transaction> getAllTransactions() {
         return transactionService.findAll();
     }
 
-    // POST /banking/admin/accounts/{id}/deposit - Depósito manual
     @PostMapping("/{id}/deposit")
     public AccountResponse deposit(
             @PathVariable Long id, 
@@ -40,7 +37,6 @@ public class AdminAccountController {
         return accountService.adminDeposit(id, request.amount(), request.description());
     }
 
-    // POST /banking/admin/accounts/{id}/block - Bloqueio manual
     @PostMapping("/{id}/block")
     public AccountResponse blockAccount(@PathVariable Long id) {
         return accountService.blockAccount(id);
