@@ -34,6 +34,13 @@ public class UserFacadeImpl implements UserFacade{
                 .orElse(false);
     }
 
+    @Override
+    public UserInfo findByEmail(String email) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new UserNotFoundException(0L));
+        return toInfo(user);
+    }
+
     private UserInfo toInfo(User user) {
         return new UserInfo(
                 user.getId(),

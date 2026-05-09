@@ -4,6 +4,8 @@ import br.accenture.ProjetoFinalAccentureGrupo1.banking.domain.Account;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.domain.PaymentRequest;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.enums.AccountType;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.enums.PaymentRequestStatus;
+import br.accenture.ProjetoFinalAccentureGrupo1.banking.exceptions.PaymentRequestNotFoundException;
+import br.accenture.ProjetoFinalAccentureGrupo1.banking.exceptions.PaymentRequestNotPayableException;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.repository.AccountRepository;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.repository.PaymentRequestRepository;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.services.AccountService;
@@ -74,5 +76,19 @@ public class BankingFacadeImpl implements BankingFacade {
 
         paymentRequestRepository.save(request);
         return request.getCode();
+    }
+
+    @Override
+    @Transactional
+    public void cancelPaymentRequest(String code) {
+        PaymentRequest request = paymentRequestRepository.findByCode(code)
+                .orElseThrow(() -> new PaymentRequestNotFoundException(code));
+
+        if (request.getStatus() != PaymentRequestStatus.PENDING) {
+            throw new PaymentRequestNotPayableException(code, request.getStatus().name());
+        }
+
+        request.setStatus(PaymentRequestStatus.CANCELLED);
+        paymentRequestRepository.save(request);
     }
 }
