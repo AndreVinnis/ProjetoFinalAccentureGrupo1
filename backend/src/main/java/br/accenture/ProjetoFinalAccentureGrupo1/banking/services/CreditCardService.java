@@ -2,7 +2,6 @@ package br.accenture.ProjetoFinalAccentureGrupo1.banking.services;
 
 import br.accenture.ProjetoFinalAccentureGrupo1.auth.domain.User;
 import br.accenture.ProjetoFinalAccentureGrupo1.auth.repository.UserRepository;
-import br.accenture.ProjetoFinalAccentureGrupo1.banking.accounts.service.AccountService;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.domain.CreditCard;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.domain.CreditCardTransaction;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.dto.CreditCardPurchaseRequest;
