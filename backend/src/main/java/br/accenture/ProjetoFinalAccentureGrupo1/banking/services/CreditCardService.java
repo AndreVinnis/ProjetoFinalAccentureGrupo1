@@ -207,7 +207,7 @@ public class CreditCardService {
     }
 
     private void settleCreditCardSaleAndNotify(CreditCard card, CreditCardTransaction savedTx, BigDecimal amount) {
-        //accountService.creditMerchantForCreditCardSale(amount);
+        accountService.creditMerchantForCreditCardSale(amount);
         User payer = card.getUser();
         eventPublisher.publishEvent(new OrderPaidEvent(
                 savedTx.getId(),

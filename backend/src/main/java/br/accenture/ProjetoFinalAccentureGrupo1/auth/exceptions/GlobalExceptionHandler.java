@@ -1,5 +1,8 @@
 package br.accenture.ProjetoFinalAccentureGrupo1.auth.exceptions;
 
+import br.accenture.ProjetoFinalAccentureGrupo1.banking.exceptions.AccountNotActiveException;
+import br.accenture.ProjetoFinalAccentureGrupo1.banking.exceptions.AccountNotFoundException;
+import br.accenture.ProjetoFinalAccentureGrupo1.banking.exceptions.InsufficientBalanceException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -47,6 +50,21 @@ public class GlobalExceptionHandler {
         body.put("error", "Validation failed");
         body.put("fields", fieldErrors);
         return ResponseEntity.badRequest().body(body);
+    }
+
+    @ExceptionHandler(AccountNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleAccountNotFound(AccountNotFoundException ex) {
+        return error(HttpStatus.NOT_FOUND, ex.getMessage());
+    }
+
+    @ExceptionHandler(InsufficientBalanceException.class)
+    public ResponseEntity<ErrorResponse> handleInsufficientBalance(InsufficientBalanceException ex) {
+        return error(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage());
+    }
+
+    @ExceptionHandler(AccountNotActiveException.class)
+    public ResponseEntity<ErrorResponse> handleAccountNotActive(AccountNotActiveException ex) {
+        return error(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage());
     }
 
     private ResponseEntity<ErrorResponse> error(HttpStatus status, String message) {

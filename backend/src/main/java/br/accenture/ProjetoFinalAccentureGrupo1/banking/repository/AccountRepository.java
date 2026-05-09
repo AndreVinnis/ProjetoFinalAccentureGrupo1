@@ -20,4 +20,6 @@ public interface AccountRepository extends JpaRepository<Account, Long> {
 
     // Usado pelo CompanyAccountInitializer para encontrar a conta da empresa
     Optional<Account> findFirstByAccountType(AccountType accountType);
+
+    long countByAccountType(AccountType accountType);
 }
