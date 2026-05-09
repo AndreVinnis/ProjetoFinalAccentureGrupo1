@@ -9,6 +9,7 @@ import br.accenture.ProjetoFinalAccentureGrupo1.banking.exceptions.PaymentReques
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.repository.AccountRepository;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.repository.PaymentRequestRepository;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.services.AccountService;
+import br.accenture.ProjetoFinalAccentureGrupo1.banking.services.CreditCardService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,12 +26,13 @@ public class BankingFacadeImpl implements BankingFacade {
     private static final long PIX_EXPIRATION_MINUTES = 30;
 
     private final AccountService accountService;
+    private final CreditCardService creditCardService;
     private final AccountRepository accountRepository;
     private final PaymentRequestRepository paymentRequestRepository;
 
     @Override
     public BigDecimal getBalance(Long userId) {
-        return null;
+        return accountService.getBalance(userId);
     }
 
     @Override
@@ -46,12 +48,12 @@ public class BankingFacadeImpl implements BankingFacade {
 
     @Override
     public void chargeCard(Long userId, BigDecimal amount, String description, String reference) {
-
+        creditCardService.chargeCard(userId, amount, description, reference);
     }
 
     @Override
     public void issueRefund(Long toUserId, BigDecimal amount, String description) {
-
+        accountService.credit(toUserId, amount, description);
     }
 
     @Override

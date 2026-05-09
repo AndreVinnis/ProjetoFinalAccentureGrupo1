@@ -10,39 +10,62 @@ import java.time.Instant;
 @RestControllerAdvice
 public class BankingExceptionHandler {
 
-//    @ExceptionHandler(BankAccountNotFoundException.class)
-//    public ResponseEntity<ErrorResponse> handleBankAccountNotFound(BankAccountNotFoundException ex) {
-//        return error(HttpStatus.NOT_FOUND, ex.getMessage());
-//    }
-//
-//    @ExceptionHandler(BankAccountInsufficientFundsException.class)
-//    public ResponseEntity<ErrorResponse> handleBankAccountInsufficientFunds(BankAccountInsufficientFundsException ex) {
-//        return error(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage());
-//    }
-//
-//    @ExceptionHandler(CreditCardNotFoundException.class)
-//    public ResponseEntity<ErrorResponse> handleCreditCardNotFound(CreditCardNotFoundException ex) {
-//        return error(HttpStatus.NOT_FOUND, ex.getMessage());
-//    }
-//
-//    @ExceptionHandler(CreditCardAlreadyExistsException.class)
-//    public ResponseEntity<ErrorResponse> handleCreditCardAlreadyExists(CreditCardAlreadyExistsException ex) {
-//        return error(HttpStatus.CONFLICT, ex.getMessage());
-//    }
-//
-//    @ExceptionHandler(CreditCardBlockedException.class)
-//    public ResponseEntity<ErrorResponse> handleCreditCardBlocked(CreditCardBlockedException ex) {
-//        return error(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage());
-//    }
-//
-//    @ExceptionHandler(InsufficientCreditLimitException.class)
-//    public ResponseEntity<ErrorResponse> handleInsufficientCreditLimit(InsufficientCreditLimitException ex) {
-//        return error(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage());
-//    }
-//
-//    private ResponseEntity<ErrorResponse> error(HttpStatus status, String message) {
-//        return ResponseEntity.status(status).body(new ErrorResponse(Instant.now(), status.value(), message));
-//    }
-//
-//    public record ErrorResponse(Instant timestamp, int status, String message) {}
+    @ExceptionHandler(CreditCardNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleCreditCardNotFound(CreditCardNotFoundException ex) {
+        return error(HttpStatus.NOT_FOUND, ex.getMessage());
+    }
+
+    @ExceptionHandler(CreditCardAlreadyExistsException.class)
+    public ResponseEntity<ErrorResponse> handleCreditCardAlreadyExists(CreditCardAlreadyExistsException ex) {
+        return error(HttpStatus.CONFLICT, ex.getMessage());
+    }
+
+    @ExceptionHandler(AccountNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleAccountNotFound(AccountNotFoundException ex) {
+        return error(HttpStatus.NOT_FOUND, ex.getMessage());
+    }
+
+    @ExceptionHandler(InvoiceNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleInvoiceNotFound(InvoiceNotFoundException ex) {
+        return error(HttpStatus.NOT_FOUND, ex.getMessage());
+    }
+
+    @ExceptionHandler(AccountAlreadyExistsException.class)
+    public ResponseEntity<ErrorResponse> handleAccountAlreadyExists(AccountAlreadyExistsException ex) {
+        return error(HttpStatus.CONFLICT, ex.getMessage());
+    }
+
+    @ExceptionHandler(CreditCardBlockedException.class)
+    public ResponseEntity<ErrorResponse> handleCreditCardBlocked(CreditCardBlockedException ex) {
+        return error(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage());
+    }
+
+    @ExceptionHandler({
+            AccountBlockedException.class,
+            AccountNotActiveException.class,
+            AccountRestrictedException.class,
+            InsufficientBalanceException.class,
+            InvalidAmountException.class,
+            InvalidInvoicePaymentException.class,
+            PaymentRequestNotPayableException.class
+    })
+    public ResponseEntity<ErrorResponse> handleBusinessRule(RuntimeException ex) {
+        return error(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage());
+    }
+
+    @ExceptionHandler(PaymentRequestNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handlePaymentRequestNotFound(PaymentRequestNotFoundException ex) {
+        return error(HttpStatus.NOT_FOUND, ex.getMessage());
+    }
+
+    @ExceptionHandler(InsufficientCreditLimitException.class)
+    public ResponseEntity<ErrorResponse> handleInsufficientCreditLimit(InsufficientCreditLimitException ex) {
+        return error(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage());
+    }
+
+    private ResponseEntity<ErrorResponse> error(HttpStatus status, String message) {
+        return ResponseEntity.status(status).body(new ErrorResponse(Instant.now(), status.value(), message));
+    }
+
+    public record ErrorResponse(Instant timestamp, int status, String message) {}
 }

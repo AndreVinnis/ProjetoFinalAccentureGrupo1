@@ -8,18 +8,19 @@ import org.springframework.stereotype.Repository;
 import java.util.Optional;
 
 @Repository
-/* Autores:
- * Antônio Hortêncio Batista Rocha de Queiroga
- * André Vinícius Barros Macambira
- */
 public interface AccountRepository extends JpaRepository<Account, Long> {
 
     Optional<Account> findByUserId(Long userId);
 
     Optional<Account> findByAccountNumber(String accountNumber);
 
-    // Usado pelo CompanyAccountInitializer para encontrar a conta da empresa
+    Optional<Account> findByAccountType(AccountType accountType);
+
     Optional<Account> findFirstByAccountType(AccountType accountType);
+
+    boolean existsByUserId(Long userId);
+
+    boolean existsByAccountNumber(String accountNumber);
 
     long countByAccountType(AccountType accountType);
 }

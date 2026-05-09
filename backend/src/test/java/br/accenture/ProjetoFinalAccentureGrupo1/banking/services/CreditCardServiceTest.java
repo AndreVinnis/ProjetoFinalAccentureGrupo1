@@ -2,8 +2,10 @@ package br.accenture.ProjetoFinalAccentureGrupo1.banking.services;
 
 import br.accenture.ProjetoFinalAccentureGrupo1.auth.domain.User;
 import br.accenture.ProjetoFinalAccentureGrupo1.auth.repository.UserRepository;
+import br.accenture.ProjetoFinalAccentureGrupo1.banking.domain.CardPurchase;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.domain.CreditCard;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.domain.CreditCardTransaction;
+import br.accenture.ProjetoFinalAccentureGrupo1.banking.domain.Invoice;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.dto.CreditCardPurchaseRequest;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.dto.CreditCardResponse;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.dto.CreditCardTransactionResponse;
@@ -11,12 +13,14 @@ import br.accenture.ProjetoFinalAccentureGrupo1.banking.dto.CreditPaymentRequest
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.dto.CreditPaymentResponse;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.enums.CreditCardStatus;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.enums.CreditCardTransactionStatus;
+import br.accenture.ProjetoFinalAccentureGrupo1.banking.enums.InvoiceStatus;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.exceptions.CreditCardBlockedException;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.exceptions.InsufficientCreditLimitException;
+import br.accenture.ProjetoFinalAccentureGrupo1.banking.repository.CardPurchaseRepository;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.repository.CreditCardRepository;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.repository.CreditCardTransactionRepository;
+import br.accenture.ProjetoFinalAccentureGrupo1.banking.repository.InvoiceRepository;
 import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.events.OrderPaidEvent;
-import org.springframework.context.ApplicationEventPublisher;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -24,12 +28,15 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.YearMonth;
 import java.util.Optional;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -48,7 +55,16 @@ class CreditCardServiceTest {
     private CreditCardTransactionRepository transactionRepository;
 
     @Mock
+    private CardPurchaseRepository cardPurchaseRepository;
+
+    @Mock
+    private InvoiceRepository invoiceRepository;
+
+    @Mock
     private CreditCardNumberGenerator cardNumberGenerator;
+
+    @Mock
+    private InvoiceService invoiceService;
 
     @Mock
     private AccountService accountService;
@@ -84,6 +100,8 @@ class CreditCardServiceTest {
                 .creditLimit(new BigDecimal("1000.00"))
                 .availableLimit(new BigDecimal("1000.00"))
                 .invoiceBalance(BigDecimal.ZERO)
+                .closingDay(25)
+                .dueDay(10)
                 .build();
     }
 
@@ -113,11 +131,14 @@ class CreditCardServiceTest {
         CreditCardPurchaseRequest request = new CreditCardPurchaseRequest(
                 new BigDecimal("250.00"),
                 "Loja Accenture",
-                "Compra no ecommerce"
+                "Compra no ecommerce",
+                "ORDER-1"
         );
+        Invoice invoice = openInvoice();
 
         when(userRepository.findByEmail("ana@email.com")).thenReturn(Optional.of(user));
         when(creditCardRepository.findByUserId(1L)).thenReturn(Optional.of(card));
+        when(invoiceService.getOrCreateOpenInvoice(card)).thenReturn(invoice);
         when(transactionRepository.save(any(CreditCardTransaction.class))).thenAnswer(invocation -> {
             CreditCardTransaction saved = invocation.getArgument(0);
             saved.setId(20L);
@@ -127,24 +148,31 @@ class CreditCardServiceTest {
         CreditCardTransactionResponse response = creditCardService.purchase("ana@email.com", request);
 
         assertEquals(CreditCardTransactionStatus.APPROVED, response.status());
+        assertEquals(1, response.installments());
+        assertEquals(new BigDecimal("250.00"), response.installmentAmount());
         assertEquals(new BigDecimal("750.00"), card.getAvailableLimit());
         assertEquals(new BigDecimal("250.00"), card.getInvoiceBalance());
+        assertEquals(new BigDecimal("250.00"), invoice.getTotalAmount());
         verify(creditCardRepository).save(card);
-        verify(accountService).creditMerchantForCreditCardSale(new BigDecimal("250.00"));
+        verify(invoiceRepository).save(invoice);
+        verify(cardPurchaseRepository).save(any(CardPurchase.class));
+        verify(accountService).creditMerchant(new BigDecimal("250.00"), "ORDER-1", "Compra no cartao: Compra no ecommerce");
         verify(eventPublisher).publishEvent(any(OrderPaidEvent.class));
     }
 
     @Test
-    void payWithCredit_DeveAprovarPagamentoParcelado_QuandoCvvELimiteSaoValidos() {
+    void payWithCredit_DeveAprovarPagamentoParcelado_QuandoHaLimiteDisponivel() {
         CreditPaymentRequest request = new CreditPaymentRequest(
                 new BigDecimal("300.00"),
                 3,
                 "Loja Accenture",
                 "Pedido #123"
         );
+        Invoice invoice = openInvoice();
 
         when(userRepository.findByEmail("ana@email.com")).thenReturn(Optional.of(user));
         when(creditCardRepository.findByUserId(1L)).thenReturn(Optional.of(card));
+        when(invoiceService.getOrCreateOpenInvoice(card)).thenReturn(invoice);
         when(transactionRepository.save(any(CreditCardTransaction.class))).thenAnswer(invocation -> {
             CreditCardTransaction saved = invocation.getArgument(0);
             saved.setId(30L);
@@ -161,8 +189,11 @@ class CreditCardServiceTest {
         assertEquals(new BigDecimal("300.00"), response.invoiceBalance());
         assertEquals(new BigDecimal("700.00"), card.getAvailableLimit());
         assertEquals(new BigDecimal("300.00"), card.getInvoiceBalance());
+        assertEquals(new BigDecimal("300.00"), invoice.getTotalAmount());
         verify(creditCardRepository).save(card);
-        verify(accountService).creditMerchantForCreditCardSale(new BigDecimal("300.00"));
+        verify(invoiceRepository).save(invoice);
+        verify(cardPurchaseRepository).save(any(CardPurchase.class));
+        verify(accountService).creditMerchant(new BigDecimal("300.00"), null, "Compra no cartao: Pedido #123");
         verify(eventPublisher).publishEvent(any(OrderPaidEvent.class));
     }
 
@@ -171,7 +202,8 @@ class CreditCardServiceTest {
         CreditCardPurchaseRequest request = new CreditCardPurchaseRequest(
                 new BigDecimal("1200.00"),
                 "Loja Accenture",
-                "Compra acima do limite"
+                "Compra acima do limite",
+                "ORDER-2"
         );
 
         when(userRepository.findByEmail("ana@email.com")).thenReturn(Optional.of(user));
@@ -184,7 +216,7 @@ class CreditCardServiceTest {
         assertEquals(CreditCardTransactionStatus.DECLINED, captor.getValue().getStatus());
         assertEquals("Limite insuficiente", captor.getValue().getDeclineReason());
         assertEquals(new BigDecimal("1000.00"), card.getAvailableLimit());
-        verify(accountService, never()).creditMerchantForCreditCardSale(any());
+        verify(accountService, never()).creditMerchant(any(), any(), any());
         verify(eventPublisher, never()).publishEvent(any());
     }
 
@@ -194,7 +226,8 @@ class CreditCardServiceTest {
         CreditCardPurchaseRequest request = new CreditCardPurchaseRequest(
                 new BigDecimal("100.00"),
                 "Loja Accenture",
-                "Compra com cartao bloqueado"
+                "Compra com cartao bloqueado",
+                "ORDER-3"
         );
 
         when(userRepository.findByEmail("ana@email.com")).thenReturn(Optional.of(user));
@@ -206,7 +239,20 @@ class CreditCardServiceTest {
         verify(transactionRepository).save(captor.capture());
         assertEquals(CreditCardTransactionStatus.DECLINED, captor.getValue().getStatus());
         assertEquals("Cartao bloqueado ou cancelado", captor.getValue().getDeclineReason());
-        verify(accountService, never()).creditMerchantForCreditCardSale(any());
+        verify(accountService, never()).creditMerchant(any(), any(), any());
         verify(eventPublisher, never()).publishEvent(any());
+    }
+
+    private Invoice openInvoice() {
+        return Invoice.builder()
+                .id(30L)
+                .card(card)
+                .referenceMonth(YearMonth.of(2026, 5))
+                .closingDate(LocalDate.of(2026, 5, 25))
+                .dueDate(LocalDate.of(2026, 6, 10))
+                .totalAmount(BigDecimal.ZERO)
+                .paidAmount(BigDecimal.ZERO)
+                .status(InvoiceStatus.OPEN)
+                .build();
     }
 }

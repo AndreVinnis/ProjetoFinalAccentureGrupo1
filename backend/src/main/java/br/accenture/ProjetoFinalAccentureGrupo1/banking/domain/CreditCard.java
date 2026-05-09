@@ -25,6 +25,10 @@ public class CreditCard {
     @JoinColumn(name = "user_id", nullable = false, unique = true)
     private User user;
 
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "account_id", unique = true)
+    private Account account;
+
     @Column(name = "holder_name", nullable = false, length = 100)
     private String holderName;
 
@@ -56,6 +60,12 @@ public class CreditCard {
     @Column(name = "invoice_balance", nullable = false, precision = 14, scale = 2)
     private BigDecimal invoiceBalance;
 
+    @Column(name = "closing_day")
+    private Integer closingDay;
+
+    @Column(name = "due_day")
+    private Integer dueDay;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
@@ -67,6 +77,12 @@ public class CreditCard {
         Instant now = Instant.now();
         this.createdAt = now;
         this.updatedAt = now;
+        if (this.closingDay == null || this.closingDay == 0) {
+            this.closingDay = 25;
+        }
+        if (this.dueDay == null || this.dueDay == 0) {
+            this.dueDay = 10;
+        }
     }
 
     @PreUpdate

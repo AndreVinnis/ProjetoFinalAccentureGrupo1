@@ -1,21 +1,30 @@
 package br.accenture.ProjetoFinalAccentureGrupo1.banking.services;
 
+import br.accenture.ProjetoFinalAccentureGrupo1.auth.domain.User;
+import br.accenture.ProjetoFinalAccentureGrupo1.auth.repository.UserRepository;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.domain.Account;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.enums.AccountStatus;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.enums.AccountType;
-import br.accenture.ProjetoFinalAccentureGrupo1.banking.exceptions.AccountNotActiveException;
+import br.accenture.ProjetoFinalAccentureGrupo1.banking.exceptions.AccountBlockedException;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.exceptions.AccountNotFoundException;
+import br.accenture.ProjetoFinalAccentureGrupo1.banking.exceptions.AccountRestrictedException;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.exceptions.InsufficientBalanceException;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.repository.AccountRepository;
+import br.accenture.ProjetoFinalAccentureGrupo1.banking.repository.TransactionRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.Optional;
-import static org.junit.jupiter.api.Assertions.*;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -25,7 +34,16 @@ import static org.mockito.Mockito.when;
 class AccountServiceTest {
 
     @Mock
+    private UserRepository userRepository;
+
+    @Mock
     private AccountRepository accountRepository;
+
+    @Mock
+    private TransactionRepository transactionRepository;
+
+    @Mock
+    private AccountNumberGenerator accountNumberGenerator;
 
     @InjectMocks
     private AccountService accountService;
@@ -46,8 +64,17 @@ class AccountServiceTest {
 
     @Test
     void createForUser_DeveCriarConta_QuandoUsuarioNaoTemConta() {
+        User user = User.builder()
+                .id(10L)
+                .name("Ana Silva")
+                .email("ana@email.com")
+                .birthDate(LocalDate.of(1990, 5, 15))
+                .build();
+
         when(accountRepository.findByUserId(10L)).thenReturn(Optional.empty());
-        when(accountRepository.countByAccountType(AccountType.CUSTOMER)).thenReturn(0L);
+        when(userRepository.findById(10L)).thenReturn(Optional.of(user));
+        when(accountNumberGenerator.generateAccountNumber()).thenReturn("00001-0");
+        when(accountRepository.existsByAccountNumber("00001-0")).thenReturn(false);
         when(accountRepository.save(any(Account.class))).thenAnswer(inv -> inv.getArgument(0));
 
         Account created = accountService.createForUser(10L);
@@ -82,10 +109,7 @@ class AccountServiceTest {
     void getBalance_DeveLancarException_QuandoContaNaoExiste() {
         when(accountRepository.findByUserId(99L)).thenReturn(Optional.empty());
 
-        assertThrows(
-                AccountNotFoundException.class,
-                () -> accountService.getBalance(99L)
-        );
+        assertThrows(AccountNotFoundException.class, () -> accountService.getBalance(99L));
     }
 
     @Test
@@ -99,10 +123,7 @@ class AccountServiceTest {
 
     @Test
     void debit_DeveLancarException_QuandoSaldoInsuficiente() {
-        assertThrows(
-                InsufficientBalanceException.class,
-                () -> accountService.debit(active, new BigDecimal("200.00"))
-        );
+        assertThrows(InsufficientBalanceException.class, () -> accountService.debit(active, new BigDecimal("200.00")));
         verify(accountRepository, never()).save(any());
     }
 
@@ -110,10 +131,7 @@ class AccountServiceTest {
     void debit_DeveLancarException_QuandoContaRestricted() {
         active.setStatus(AccountStatus.RESTRICTED);
 
-        assertThrows(
-                AccountNotActiveException.class,
-                () -> accountService.debit(active, new BigDecimal("10.00"))
-        );
+        assertThrows(AccountRestrictedException.class, () -> accountService.debit(active, new BigDecimal("10.00")));
     }
 
     @Test
@@ -139,10 +157,7 @@ class AccountServiceTest {
     void credit_DeveLancarException_QuandoContaBlocked() {
         active.setStatus(AccountStatus.BLOCKED);
 
-        assertThrows(
-                AccountNotActiveException.class,
-                () -> accountService.credit(active, new BigDecimal("50.00"))
-        );
+        assertThrows(AccountBlockedException.class, () -> accountService.credit(active, new BigDecimal("50.00")));
         verify(accountRepository, never()).save(any());
     }
 }

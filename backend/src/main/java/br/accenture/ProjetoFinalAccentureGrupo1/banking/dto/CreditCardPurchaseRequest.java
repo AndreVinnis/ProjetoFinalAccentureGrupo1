@@ -18,5 +18,8 @@ public record CreditCardPurchaseRequest(
 
         @NotBlank(message = "A descricao da compra e obrigatoria")
         @Size(max = 255, message = "A descricao deve ter no maximo 255 caracteres")
-        String description
+        String description,
+
+        @Size(max = 120, message = "A referencia deve ter no maximo 120 caracteres")
+        String reference
 ) {}
