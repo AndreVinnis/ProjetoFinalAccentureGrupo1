@@ -166,6 +166,39 @@ public class AccountService {
         return findByUserId(userId);
     }
 
+    @Transactional(readOnly = true)
+    public List<AccountResponse> findAllAccounts() {
+        return accountRepository.findAll()
+                .stream()
+                .map(this::toAccountResponse)
+                .toList();
+    }
+
+    @Transactional
+    public AccountResponse adminDeposit(Long accountId, BigDecimal amount, String description) {
+        Account account = accountRepository.findById(accountId)
+                .orElseThrow(() -> new AccountNotFoundException(accountId));
+        
+        validatePositiveAmount(amount);
+        ensureNotBlocked(account); 
+        
+        String finalDescription = (description != null && !description.isBlank()) 
+                ? description 
+                : "Depósito administrativo";
+                
+        creditAccount(account, amount, null, finalDescription, TransactionType.DEPOSIT);
+        return toAccountResponse(accountRepository.save(account));
+    }
+
+    @Transactional
+    public AccountResponse blockAccount(Long accountId) {
+        Account account = accountRepository.findById(accountId)
+                .orElseThrow(() -> new AccountNotFoundException(accountId));
+                
+        account.setStatus(AccountStatus.BLOCKED);
+        return toAccountResponse(accountRepository.save(account));
+    }
+
     private Account createCustomerAccount(Long userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new UsernameNotFoundException("Usuario nao encontrado: " + userId));
