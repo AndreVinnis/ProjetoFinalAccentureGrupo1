@@ -8,6 +8,7 @@ import br.accenture.ProjetoFinalAccentureGrupo1.banking.domain.PaymentRequest;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.enums.AccountStatus;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.enums.AccountType;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.enums.PaymentRequestStatus;
+import br.accenture.ProjetoFinalAccentureGrupo1.banking.enums.TransactionType;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.events.PaymentReceivedEvent;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.exceptions.PaymentRequestNotFoundException;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.exceptions.PaymentRequestNotPayableException;
@@ -93,8 +94,8 @@ class PixServiceTest {
 
         assertEquals(PaymentRequestStatus.PAID, result.getStatus());
         assertEquals(10L, result.getPaidByUserId());
-        verify(accountService).debit(payerAccount, new BigDecimal("100.00"));
-        verify(accountService).credit(merchantAccount, new BigDecimal("100.00"));
+        verify(accountService).debit(payerAccount, new BigDecimal("100.00"), pendingRequest.getReference(), pendingRequest.getDescription(), TransactionType.PAYMENT);
+        verify(accountService).credit(merchantAccount, new BigDecimal("100.00"), pendingRequest.getReference(), pendingRequest.getDescription(), TransactionType.PAYMENT);
         verify(eventPublisher).publishEvent(any(PaymentReceivedEvent.class));
     }
 

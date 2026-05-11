@@ -4,7 +4,7 @@ import br.accenture.ProjetoFinalAccentureGrupo1.banking.domain.Invoice;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.enums.InvoiceStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
-
+import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.List;
 import java.util.Optional;
@@ -17,4 +17,8 @@ public interface InvoiceRepository extends JpaRepository<Invoice, Long> {
     Optional<Invoice> findByCardIdAndReferenceMonth(Long cardId, YearMonth referenceMonth);
 
     List<Invoice> findByCardIdOrderByReferenceMonthDesc(Long cardId);
+
+    List<Invoice> findByStatusAndDueDateLessThanEqual(InvoiceStatus invoiceStatus, LocalDate today);
+
+    List<Invoice> findByStatusAndClosingDateLessThanEqual(InvoiceStatus invoiceStatus, LocalDate today);
 }

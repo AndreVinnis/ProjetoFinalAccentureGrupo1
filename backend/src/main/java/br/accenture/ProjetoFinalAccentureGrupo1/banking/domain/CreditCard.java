@@ -21,10 +21,6 @@ public class CreditCard {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @OneToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "user_id", nullable = false, unique = true)
-    private User user;
-
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "account_id", unique = true)
     private Account account;
@@ -34,9 +30,6 @@ public class CreditCard {
 
     @Column(name = "number_hash", nullable = false, unique = true, length = 64)
     private String numberHash;
-
-    @Column(name = "last_four_digits", nullable = false, length = 4)
-    private String lastFourDigits;
 
     @Column(name = "cvv_hash", nullable = false, length = 64)
     private String cvvHash;
@@ -56,9 +49,6 @@ public class CreditCard {
 
     @Column(name = "available_limit", nullable = false, precision = 14, scale = 2)
     private BigDecimal availableLimit;
-
-    @Column(name = "invoice_balance", nullable = false, precision = 14, scale = 2)
-    private BigDecimal invoiceBalance;
 
     @Column(name = "closing_day")
     private Integer closingDay;

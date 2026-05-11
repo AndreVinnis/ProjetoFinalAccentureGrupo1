@@ -1,20 +1,23 @@
 package br.accenture.ProjetoFinalAccentureGrupo1.banking.services;
 
-import br.accenture.ProjetoFinalAccentureGrupo1.auth.domain.User;
-import br.accenture.ProjetoFinalAccentureGrupo1.auth.repository.UserRepository;
+import br.accenture.ProjetoFinalAccentureGrupo1.auth.api.UserFacade;
+import br.accenture.ProjetoFinalAccentureGrupo1.auth.api.UserInfo;
+import br.accenture.ProjetoFinalAccentureGrupo1.banking.domain.Account;
+import br.accenture.ProjetoFinalAccentureGrupo1.banking.domain.CardPurchase;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.domain.CreditCard;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.domain.Invoice;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.dto.InvoiceResponse;
+import br.accenture.ProjetoFinalAccentureGrupo1.banking.enums.AccountStatus;
+import br.accenture.ProjetoFinalAccentureGrupo1.banking.enums.CreditCardStatus;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.enums.InvoiceStatus;
+import br.accenture.ProjetoFinalAccentureGrupo1.banking.events.InvoiceOverdueEvent;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.events.InvoicePaidEvent;
-import br.accenture.ProjetoFinalAccentureGrupo1.banking.exceptions.InvalidAmountException;
-import br.accenture.ProjetoFinalAccentureGrupo1.banking.exceptions.InvalidInvoicePaymentException;
-import br.accenture.ProjetoFinalAccentureGrupo1.banking.exceptions.InvoiceNotFoundException;
+import br.accenture.ProjetoFinalAccentureGrupo1.banking.exceptions.*;
+import br.accenture.ProjetoFinalAccentureGrupo1.banking.repository.AccountRepository;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.repository.CreditCardRepository;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.repository.InvoiceRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -29,10 +32,11 @@ import java.util.List;
 @RequiredArgsConstructor
 public class InvoiceService {
 
+    private final UserFacade userFacade;
     private final InvoiceRepository invoiceRepository;
     private final CreditCardRepository creditCardRepository;
-    private final UserRepository userRepository;
     private final AccountService accountService;
+    private final AccountRepository accountRepository;
     private final ApplicationEventPublisher eventPublisher;
     private final Clock clock;
 
@@ -43,12 +47,22 @@ public class InvoiceService {
     }
 
     @Transactional
-    public InvoiceResponse getCurrentInvoice(CreditCard card) {
-        return toInvoiceResponse(getOrCreateOpenInvoice(card));
+    public InvoiceResponse getCurrentInvoice(String email) {
+        UserInfo user = userFacade.findByEmail(email);
+        Account account = accountService.findByUserId(user.id());
+        CreditCard card = creditCardRepository.findByAccount(account).orElseThrow(
+                () -> new CardNotFoundException(0L));
+        Invoice invoice = invoiceRepository.findByCardIdAndStatus(card.getId(), InvoiceStatus.OPEN).orElseThrow(()
+            -> new InvoiceNotFoundException(0L));
+        return  toInvoiceResponse(invoice);
     }
 
     @Transactional(readOnly = true)
-    public List<InvoiceResponse> listByCard(CreditCard card) {
+    public List<InvoiceResponse> listByCard(String email) {
+        UserInfo user = userFacade.findByEmail(email);
+        Account account = accountService.findByUserId(user.id());
+        CreditCard card = creditCardRepository.findByAccount(account).orElseThrow(
+                () -> new CardNotFoundException(0L));
         return invoiceRepository.findByCardIdOrderByReferenceMonthDesc(card.getId())
                 .stream()
                 .map(this::toInvoiceResponse)
@@ -56,56 +70,163 @@ public class InvoiceService {
     }
 
     @Transactional
-    public InvoiceResponse payInvoice(Long invoiceId, String userEmail, BigDecimal amount) {
+    public void addCardPurchase(Invoice invoice, CardPurchase cardPurchase){
+        invoice.setTotalAmount(invoice.getTotalAmount().add(cardPurchase.getAmount()));
+        invoiceRepository.save(invoice);
+    }
+
+    /*
+     * Fecha uma fatura específica. Marca como CLOSED e registra o instante.
+     * Idempotente apenas pra OPEN — se já estiver fechada/paga, lança exception.
+     */
+    @Transactional
+    public Invoice closeInvoice(Long invoiceId) {
+        Invoice invoice = invoiceRepository.findById(invoiceId).orElseThrow(() -> new InvoiceNotFoundException(invoiceId));
+
+        if (invoice.getStatus() != InvoiceStatus.OPEN) {
+            throw new InvoiceNotCloseableException(invoiceId, invoice.getStatus());
+        }
+
+        invoice.setStatus(InvoiceStatus.CLOSED);
+        invoice.setClosedAt(Instant.now());
+        return invoiceRepository.save(invoice);
+    }
+
+    /**
+     * Fecha todas as faturas OPEN cujo closingDate <= hoje.
+     * Idempotente — rodar várias vezes no mesmo dia é seguro.
+     */
+    @Transactional
+    public void closeDueInvoices() {
+        LocalDate today = LocalDate.now(clock);
+
+        List<Invoice> toClose = invoiceRepository.findByStatusAndClosingDateLessThanEqual(InvoiceStatus.OPEN, today);
+
+        Instant now = Instant.now();
+        for (Invoice invoice : toClose) {
+            invoice.setStatus(InvoiceStatus.CLOSED);
+            invoice.setClosedAt(now);
+        }
+        invoiceRepository.saveAll(toClose);
+    }
+
+    @Transactional
+    public InvoiceResponse payInvoice(Long invoiceId, BigDecimal amount) {
+        Invoice invoice = invoiceRepository.findById(invoiceId).orElseThrow(() -> new InvoiceNotFoundException(invoiceId));
+
         validatePositiveAmount(amount);
 
-        User user = userRepository.findByEmail(userEmail)
-                .orElseThrow(() -> new UsernameNotFoundException("Usuario nao encontrado: " + userEmail));
-        Invoice invoice = invoiceRepository.findById(invoiceId)
-                .orElseThrow(() -> new InvoiceNotFoundException(invoiceId));
+        if (invoice.getStatus() != InvoiceStatus.CLOSED
+                && invoice.getStatus() != InvoiceStatus.OVERDUE) {
+            throw new InvoiceNotPayableException(invoiceId, invoice.getStatus());
+        }
+
+        BigDecimal remaining = invoice.getTotalAmount().subtract(invoice.getPaidAmount());
+        if (amount.compareTo(remaining) > 0) {
+            throw new IllegalArgumentException(
+                    "Valor (R$ " + amount + ") excede o saldo devedor (R$ " + remaining + ")"
+            );
+        }
+
         CreditCard card = invoice.getCard();
+        Account customerAccount = card.getAccount();
+        String reference = "INVOICE-" + invoiceId;
+        String description = "Pagamento da fatura " + invoice.getReferenceMonth();
 
-        if (!card.getUser().getId().equals(user.getId())) {
-            throw new InvalidInvoicePaymentException("Fatura nao pertence ao usuario autenticado");
-        }
-        if (invoice.getStatus() == InvoiceStatus.OPEN) {
-            throw new InvalidInvoicePaymentException("Fatura aberta ainda nao pode ser paga");
-        }
-        if (invoice.getStatus() == InvoiceStatus.PAID) {
-            throw new InvalidInvoicePaymentException("Fatura ja esta paga");
-        }
-
-        BigDecimal remainingAmount = invoice.getTotalAmount().subtract(invoice.getPaidAmount());
-        if (remainingAmount.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new InvalidInvoicePaymentException("Fatura nao possui saldo em aberto");
-        }
-        if (amount.compareTo(remainingAmount) > 0) {
-            throw new InvalidInvoicePaymentException("Valor de pagamento maior que o saldo da fatura");
-        }
-
-        String reference = "INVOICE-" + invoice.getId();
-        accountService.debitInvoicePayment(user.getId(), amount, reference, "Pagamento de fatura");
+        // Debita do cliente (usando metodo que tolera RESTRICTED)
+        accountService.debitForInvoicePayment(customerAccount, amount, reference, description);
 
         invoice.setPaidAmount(invoice.getPaidAmount().add(amount));
-        restoreAvailableLimit(card, amount);
+        card.setAvailableLimit(card.getAvailableLimit().add(amount));
 
-        if (invoice.getPaidAmount().compareTo(invoice.getTotalAmount()) >= 0) {
-            Instant paidAt = Instant.now(clock);
+        boolean fullyPaid = invoice.getPaidAmount().compareTo(invoice.getTotalAmount()) >= 0;
+        if (fullyPaid) {
+            boolean wasOverdue = invoice.getStatus() == InvoiceStatus.OVERDUE;
             invoice.setStatus(InvoiceStatus.PAID);
-            invoice.setPaidAt(paidAt);
+            invoice.setPaidAt(Instant.now());
+
+            if (wasOverdue) {
+                customerAccount.setStatus(AccountStatus.ACTIVE);
+                card.setStatus(CreditCardStatus.ACTIVE);
+                accountRepository.save(customerAccount);
+            }
+
             eventPublisher.publishEvent(new InvoicePaidEvent(
                     invoice.getId(),
-                    user.getId(),
-                    user.getName(),
-                    user.getEmail(),
+                    customerAccount.getUserId(),
+                    getCustomerName(customerAccount.getUserId()),
+                    getCustomerEmail(customerAccount.getUserId()),
                     invoice.getPaidAmount(),
                     invoice.getReferenceMonth(),
-                    paidAt
+                    invoice.getPaidAt()
             ));
         }
 
         creditCardRepository.save(card);
-        return toInvoiceResponse(invoiceRepository.save(invoice));
+        invoiceRepository.save(invoice);
+        return toInvoiceResponse(invoice);
+    }
+
+    /*
+     * Cobra automaticamente todas as faturas CLOSED com dueDate <= hoje.
+     * Para cada fatura, tenta debitar o saldo devedor:
+     *   - sucesso → marca PAID, libera limite, publica InvoicePaidEvent
+     *   - falha (saldo insuficiente) → marca OVERDUE, restringe conta, bloqueia cartão,
+     *     publica InvoiceOverdueEvent
+     *
+     * Idempotente: rodar duas vezes no mesmo dia é seguro (faturas já PAID/OVERDUE são ignoradas).
+     */
+    @Transactional
+    public void chargeDueInvoices() {
+        LocalDate today = LocalDate.now(clock);
+
+        List<Invoice> due = invoiceRepository.findByStatusAndDueDateLessThanEqual(
+                InvoiceStatus.CLOSED, today
+        );
+
+        for (Invoice invoice : due) {
+            chargeOneInvoice(invoice);
+        }
+    }
+
+    private void chargeOneInvoice(Invoice invoice) {
+        BigDecimal remaining = invoice.getTotalAmount().subtract(invoice.getPaidAmount());
+        if (remaining.signum() <= 0) {
+            // Já estava paga, só não tinha mudado o status — corrige
+            invoice.setStatus(InvoiceStatus.PAID);
+            invoiceRepository.save(invoice);
+            return;
+        }
+
+        CreditCard card = invoice.getCard();
+        Account account = card.getAccount();
+
+        try {
+            // Tenta cobrar o valor restante de uma vez
+            payInvoice(invoice.getId(), remaining);
+        } catch (InsufficientBalanceException ex) {
+            markAsOverdue(invoice, account, card);
+        }
+    }
+
+    private void markAsOverdue(Invoice invoice, Account account, CreditCard card) {
+        invoice.setStatus(InvoiceStatus.OVERDUE);
+        invoiceRepository.save(invoice);
+
+        account.setStatus(AccountStatus.RESTRICTED);
+        card.setStatus(CreditCardStatus.BLOCKED);
+        accountRepository.save(account);
+        creditCardRepository.save(card);
+
+        eventPublisher.publishEvent(new InvoiceOverdueEvent(
+                invoice.getId(),
+                account.getUserId(),
+                getCustomerName(account.getUserId()),
+                getCustomerEmail(account.getUserId()),
+                invoice.getTotalAmount().subtract(invoice.getPaidAmount()),
+                invoice.getDueDate(),
+                invoice.getReferenceMonth()
+        ));
     }
 
     public InvoiceResponse toInvoiceResponse(Invoice invoice) {
@@ -151,16 +272,12 @@ public class InvoiceService {
         }
     }
 
-    private void restoreAvailableLimit(CreditCard card, BigDecimal amount) {
-        BigDecimal restoredLimit = card.getAvailableLimit().add(amount);
-        if (restoredLimit.compareTo(card.getCreditLimit()) > 0) {
-            restoredLimit = card.getCreditLimit();
-        }
-        card.setAvailableLimit(restoredLimit);
-        card.setInvoiceBalance(card.getInvoiceBalance().subtract(amount));
-        if (card.getInvoiceBalance().compareTo(BigDecimal.ZERO) < 0) {
-            card.setInvoiceBalance(BigDecimal.ZERO);
-        }
+    private String getCustomerName(Long userId) {
+        return userFacade.findById(userId).name();
+    }
+
+    private String getCustomerEmail(Long userId) {
+        return userFacade.findById(userId).email();
     }
 
     private LocalDate safeDate(YearMonth month, Integer day, int defaultDay) {

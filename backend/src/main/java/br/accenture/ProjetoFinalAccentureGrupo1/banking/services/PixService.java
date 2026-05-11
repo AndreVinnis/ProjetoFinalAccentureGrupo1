@@ -5,6 +5,7 @@ import br.accenture.ProjetoFinalAccentureGrupo1.auth.api.UserInfo;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.domain.Account;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.domain.PaymentRequest;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.enums.PaymentRequestStatus;
+import br.accenture.ProjetoFinalAccentureGrupo1.banking.enums.TransactionType;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.events.PaymentExpiredEvent;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.events.PaymentReceivedEvent;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.exceptions.PaymentRequestNotFoundException;
@@ -52,8 +53,8 @@ public class PixService {
         UserInfo payer = userFacade.findByEmail(payerEmail);
         Account payerAccount = accountService.findByUserId(payer.id());
 
-        accountService.debit(payerAccount, request.getAmount());
-        accountService.credit(request.getRecipient(), request.getAmount());
+        accountService.debit(payerAccount, request.getAmount(), request.getReference(), request.getDescription(), TransactionType.PAYMENT);
+        accountService.credit(request.getRecipient(), request.getAmount(), request.getReference(), request.getDescription(), TransactionType.PAYMENT);
 
         request.setStatus(PaymentRequestStatus.PAID);
         request.setPaidAt(now);
