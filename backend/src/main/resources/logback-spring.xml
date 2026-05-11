@@ -1,0 +1,149 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Configuração de logging do Logback para o Spring Boot.
+
+    Diferenças importantes em relação a um logback.xml "puro":
+      - O arquivo se chama logback-spring.xml (e não logback.xml) para que
+        o Spring Boot o carregue depois de processar os perfis. Isso
+        habilita o uso da tag <springProfile>.
+      - Os defaults do Spring Boot são incluídos via <include resource=...>,
+        o que nos dá os patterns CONSOLE_LOG_PATTERN e FILE_LOG_PATTERN
+        prontos (com cores no console e PID em todas as linhas).
+
+    Arquivos gerados (em ./logs por padrão):
+      - app.log       → todos os eventos a partir do nível configurado.
+      - error.log     → somente ERROR (e acima), para monitoramento focado.
+
+    Rotação:
+      - SizeAndTimeBasedRollingPolicy: troca o arquivo todo dia OU quando
+        passar de 10 MB no mesmo dia (sufixo .%i para múltiplos chunks).
+      - Arquivos antigos são gzipados.
+      - Retenção: 30 dias para app.log, 90 dias para error.log.
+      - totalSizeCap funciona como "freio de mão": se a soma dos arquivos
+        arquivados exceder o limite, os mais antigos são apagados mesmo
+        que ainda estejam dentro do prazo de retenção.
+
+    Para sobrescrever o diretório dos logs em runtime, defina a variável
+    de ambiente LOG_PATH (ex: LOG_PATH=/var/log/projeto java -jar app.jar).
+-->
+<configuration scan="true" scanPeriod="30 seconds">
+
+    <!-- Carrega os patterns/converters padrão do Spring Boot
+         (CONSOLE_LOG_PATTERN, FILE_LOG_PATTERN, etc.) -->
+    <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
+
+    <!-- ============================================================ -->
+    <!-- Variáveis                                                    -->
+    <!-- ============================================================ -->
+    <!-- Diretório base. Pode ser sobrescrito por env var LOG_PATH. -->
+    <property name="LOG_PATH"      value="${LOG_PATH:-logs}"/>
+    <property name="LOG_FILE_NAME" value="${LOG_FILE_NAME:-app}"/>
+
+    <!-- ============================================================ -->
+    <!-- Appender: CONSOLE                                            -->
+    <!-- ============================================================ -->
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>${CONSOLE_LOG_PATTERN}</pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+    </appender>
+
+    <!-- ============================================================ -->
+    <!-- Appender: FILE_APP  (arquivo geral com rotação)              -->
+    <!-- ============================================================ -->
+    <appender name="FILE_APP" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_PATH}/${LOG_FILE_NAME}.log</file>
+
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_PATH}/${LOG_FILE_NAME}.%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
+            <maxFileSize>10MB</maxFileSize>
+            <maxHistory>30</maxHistory>
+            <totalSizeCap>1GB</totalSizeCap>
+            <cleanHistoryOnStart>true</cleanHistoryOnStart>
+        </rollingPolicy>
+
+        <encoder>
+            <pattern>${FILE_LOG_PATTERN}</pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+    </appender>
+
+    <!-- ============================================================ -->
+    <!-- Appender: FILE_ERROR  (somente ERROR, retenção mais longa)   -->
+    <!-- ============================================================ -->
+    <appender name="FILE_ERROR" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_PATH}/error.log</file>
+
+        <!-- ThresholdFilter: descarta tudo abaixo de ERROR. -->
+        <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+            <level>ERROR</level>
+        </filter>
+
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_PATH}/error.%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
+            <maxFileSize>10MB</maxFileSize>
+            <maxHistory>90</maxHistory>
+            <totalSizeCap>500MB</totalSizeCap>
+            <cleanHistoryOnStart>true</cleanHistoryOnStart>
+        </rollingPolicy>
+
+        <encoder>
+            <pattern>${FILE_LOG_PATTERN}</pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+    </appender>
+
+    <!-- ============================================================ -->
+    <!-- Configuração por perfil                                      -->
+    <!--                                                              -->
+    <!-- Os níveis aqui são apenas defaults. Ajustes finos por logger -->
+    <!-- (ex: org.hibernate.SQL: DEBUG) continuam funcionando via     -->
+    <!-- "logging.level.*" no application-*.yaml — eles são aplicados -->
+    <!-- por cima desta configuração.                                 -->
+    <!-- ============================================================ -->
+
+    <!-- DEV: console + arquivo + erros. Tudo verboso. -->
+    <springProfile name="dev">
+        <root level="INFO">
+            <appender-ref ref="CONSOLE"/>
+            <appender-ref ref="FILE_APP"/>
+            <appender-ref ref="FILE_ERROR"/>
+        </root>
+        <logger name="com.grupo.projeto" level="DEBUG"/>
+    </springProfile>
+
+    <!-- PROD: console discreto + arquivos. -->
+    <springProfile name="prod">
+        <root level="INFO">
+            <appender-ref ref="CONSOLE"/>
+            <appender-ref ref="FILE_APP"/>
+            <appender-ref ref="FILE_ERROR"/>
+        </root>
+        <logger name="com.grupo.projeto" level="INFO"/>
+    </springProfile>
+
+    <!-- TEST: console + arquivos. Mantemos o file output ligado para que
+         o workflow de CI consiga publicar os logs como artefato. O nível
+         root segue WARN (testes não devem poluir o output com logs INFO
+         de bibliotecas), mas o nosso código (com.grupo.projeto) loga em
+         INFO para que mensagens como as do BillingScheduler apareçam. -->
+    <springProfile name="test">
+        <root level="WARN">
+            <appender-ref ref="CONSOLE"/>
+            <appender-ref ref="FILE_APP"/>
+            <appender-ref ref="FILE_ERROR"/>
+        </root>
+        <logger name="com.grupo.projeto" level="INFO"/>
+    </springProfile>
+
+    <!-- Fallback (nenhum perfil ativo): console + arquivo. -->
+    <springProfile name="!dev &amp; !prod &amp; !test">
+        <root level="INFO">
+            <appender-ref ref="CONSOLE"/>
+            <appender-ref ref="FILE_APP"/>
+            <appender-ref ref="FILE_ERROR"/>
+        </root>
+    </springProfile>
+
+</configuration>
