@@ -1,5 +1,7 @@
 package br.accenture.ProjetoFinalAccentureGrupo1.banking.api;
 
+import br.accenture.ProjetoFinalAccentureGrupo1.banking.dto.CardValidationResponse;
+
 import java.math.BigDecimal;
 
 /**
@@ -14,16 +16,18 @@ public interface BankingFacade {
 
     AccountInfo getAccountInfo(Long userId);
 
+    CardValidationResponse verifyCard(String cardNumber, String cvv, int expirationMonth, int expirationYear);
+
     void chargeCard(Long cardId, BigDecimal amount, String cvv, String description, String reference);
 
     void issueRefund(Long toUserId, BigDecimal amount, String reference, String description);
 
     /**
      * Cria uma cobrança PIX em nome da empresa.
-     * @param amount valor a ser cobrado
-     * @param description descrição amigável (ex: "Pagamento do pedido #42")
-     * @param reference referência externa (ex: "ORDER-42")
-     * @return código UUID que o pagador usa pra confirmar
+     * amount valor a ser cobrado
+     * description descrição amigável (ex: "Pagamento do pedido #42")
+     * reference referência externa (ex: "ORDER-42")
+     * código UUID que o pagador usa pra confirmar
      */
     String createPaymentRequest(BigDecimal amount, String description, String reference);
 

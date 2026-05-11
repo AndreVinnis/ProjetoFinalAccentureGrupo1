@@ -7,6 +7,7 @@ import br.accenture.ProjetoFinalAccentureGrupo1.banking.domain.CardPurchase;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.domain.CreditCard;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.domain.Invoice;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.dto.CardPurchaseResponse;
+import br.accenture.ProjetoFinalAccentureGrupo1.banking.dto.CardValidationResponse;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.dto.CreditCardResponse;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.dto.CreditLimitResponse;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.enums.CreditCardStatus;
@@ -66,6 +67,22 @@ public class CreditCardService {
     public CreditLimitResponse findMyLimit(String email) {
         CreditCard card = findCard(email);
         return toLimitResponse(card);
+    }
+
+    public CardValidationResponse validateCard(String cardNumber, String cvv, int expirationMonth, int expirationYear){
+        CreditCard card = creditCardRepository.findByNumberHash(encryptionService.encrypt(cardNumber)).orElseThrow(
+                () -> new InvalidCardException(cardNumber)
+        );
+        if(!encryptionService.decrypt(card.getCvvHash()).equals(cvv)){
+            throw new InvalidCardException(cvv);
+        }
+        if(card.getExpirationMonth() != expirationMonth){
+            throw new InvalidCardException("Mês de vencimento: " + expirationMonth);
+        }
+        if(card.getExpirationYear() != expirationYear){
+            throw new InvalidCardException("Ano de vencimento: " + expirationYear);
+        }
+        return new CardValidationResponse(card.getId(), cardNumber.substring(cardNumber.length() - 4));
     }
 
     @Transactional

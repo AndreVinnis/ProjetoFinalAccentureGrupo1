@@ -6,6 +6,7 @@ import br.accenture.ProjetoFinalAccentureGrupo1.auth.enums.Role;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.domain.Account;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.domain.CreditCard;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.domain.Invoice;
+import br.accenture.ProjetoFinalAccentureGrupo1.banking.dto.CardValidationResponse;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.enums.CreditCardStatus;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.events.PaymentReceivedEvent;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.exceptions.*;
@@ -249,6 +250,117 @@ class CreditCardServiceTest {
         assertThrows(
                 CreditCardNotFoundException.class,
                 () -> creditCardService.findMyCard("naotem@email.com")
+        );
+    }
+
+    @Test
+    void validateCard_DeveRetornarCardValidationResponse_QuandoDadosValidos() {
+        when(encryptionService.encrypt("1234567890123456"))
+                .thenReturn("ENC(1234567890123456)");
+
+        when(creditCardRepository.findByNumberHash("ENC(1234567890123456)"))
+                .thenReturn(Optional.of(card));
+
+        when(encryptionService.decrypt("ENC(123)"))
+                .thenReturn("123");
+
+        CardValidationResponse response = creditCardService.validateCard(
+                "1234567890123456",
+                "123",
+                12,
+                LocalDate.now().getYear() + 5
+        );
+
+        assertNotNull(response);
+        assertEquals(100L, response.cardId());
+        assertEquals("3456", response.lastForDigits());
+    }
+
+    @Test
+    void validateCard_DeveLancarException_QuandoCartaoNaoExiste() {
+        when(encryptionService.encrypt("9999999999999999"))
+                .thenReturn("ENC(9999999999999999)");
+
+        when(creditCardRepository.findByNumberHash("ENC(9999999999999999)"))
+                .thenReturn(Optional.empty());
+
+        assertThrows(
+                InvalidCardException.class,
+                () -> creditCardService.validateCard(
+                        "9999999999999999",
+                        "123",
+                        12,
+                        2030
+                )
+        );
+
+        verify(creditCardRepository)
+                .findByNumberHash("ENC(9999999999999999)");
+    }
+
+    @Test
+    void validateCard_DeveLancarException_QuandoCvvInvalido() {
+        when(encryptionService.encrypt("1234567890123456"))
+                .thenReturn("ENC(1234567890123456)");
+
+        when(creditCardRepository.findByNumberHash("ENC(1234567890123456)"))
+                .thenReturn(Optional.of(card));
+
+        when(encryptionService.decrypt("ENC(123)"))
+                .thenReturn("123");
+
+        assertThrows(
+                InvalidCardException.class,
+                () -> creditCardService.validateCard(
+                        "1234567890123456",
+                        "999",
+                        12,
+                        LocalDate.now().getYear() + 5
+                )
+        );
+    }
+
+    @Test
+    void validateCard_DeveLancarException_QuandoMesExpiracaoInvalido() {
+        when(encryptionService.encrypt("1234567890123456"))
+                .thenReturn("ENC(1234567890123456)");
+
+        when(creditCardRepository.findByNumberHash("ENC(1234567890123456)"))
+                .thenReturn(Optional.of(card));
+
+        when(encryptionService.decrypt("ENC(123)"))
+                .thenReturn("123");
+
+        assertThrows(
+                InvalidCardException.class,
+                () -> creditCardService.validateCard(
+                        "1234567890123456",
+                        "123",
+                        11,
+                        LocalDate.now().getYear() + 5
+                )
+        );
+    }
+
+    @Test
+    void validateCard_DeveLancarException_QuandoAnoExpiracaoInvalido() {
+        when(encryptionService.encrypt("1234567890123456"))
+                .thenReturn("ENC(1234567890123456)");
+
+        when(creditCardRepository.findByNumberHash("ENC(1234567890123456)"))
+                .thenReturn(Optional.of(card));
+
+        when(encryptionService.decrypt("ENC(123)"))
+                .thenReturn("123");
+
+        assertThrows(
+                InvalidCardException.class,
+                () -> creditCardService.validateCard(
+                        "1234567890123456",
+                        "123",
+                        12,
+                        2000
+                )
         );
     }
 }

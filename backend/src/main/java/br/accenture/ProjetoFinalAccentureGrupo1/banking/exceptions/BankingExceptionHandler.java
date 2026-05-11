@@ -73,6 +73,11 @@ public class BankingExceptionHandler {
         return error(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage());
     }
 
+    @ExceptionHandler(InvalidCardException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidCard(InvalidCardException ex) {
+        return error(HttpStatus.BAD_REQUEST, ex.getMessage());
+    }
+
     private ResponseEntity<ErrorResponse> error(HttpStatus status, String message) {
         return ResponseEntity.status(status).body(new ErrorResponse(Instant.now(), status.value(), message));
     }
