@@ -97,7 +97,7 @@ public class InvoiceService {
      * Idempotente — rodar várias vezes no mesmo dia é seguro.
      */
     @Transactional
-    public void closeDueInvoices() {
+    public int closeDueInvoices() {
         LocalDate today = LocalDate.now(clock);
 
         List<Invoice> toClose = invoiceRepository.findByStatusAndClosingDateLessThanEqual(InvoiceStatus.OPEN, today);
@@ -108,6 +108,7 @@ public class InvoiceService {
             invoice.setClosedAt(now);
         }
         invoiceRepository.saveAll(toClose);
+        return toClose.size();
     }
 
     @Transactional
@@ -177,7 +178,7 @@ public class InvoiceService {
      * Idempotente: rodar duas vezes no mesmo dia é seguro (faturas já PAID/OVERDUE são ignoradas).
      */
     @Transactional
-    public void chargeDueInvoices() {
+    public int chargeDueInvoices() {
         LocalDate today = LocalDate.now(clock);
 
         List<Invoice> due = invoiceRepository.findByStatusAndDueDateLessThanEqual(
@@ -187,6 +188,7 @@ public class InvoiceService {
         for (Invoice invoice : due) {
             chargeOneInvoice(invoice);
         }
+        return due.size();
     }
 
     private void chargeOneInvoice(Invoice invoice) {
