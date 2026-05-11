@@ -7,11 +7,11 @@ import java.math.BigDecimal;
 public record CreditCardResponse(
         Long id,
         String holderName,
-        String maskedNumber,
+        String cardNumbers,
+        String cvv,
         int expirationMonth,
         int expirationYear,
         CreditCardStatus status,
         BigDecimal creditLimit,
-        BigDecimal availableLimit,
-        BigDecimal invoiceBalance
+        BigDecimal availableLimit
 ) {}

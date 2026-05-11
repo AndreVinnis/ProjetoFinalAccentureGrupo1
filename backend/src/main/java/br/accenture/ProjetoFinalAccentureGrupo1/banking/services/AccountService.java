@@ -1,15 +1,17 @@
 package br.accenture.ProjetoFinalAccentureGrupo1.banking.services;
 
+import br.accenture.ProjetoFinalAccentureGrupo1.auth.api.UserFacade;
+import br.accenture.ProjetoFinalAccentureGrupo1.auth.api.UserInfo;
 import br.accenture.ProjetoFinalAccentureGrupo1.auth.domain.User;
 import br.accenture.ProjetoFinalAccentureGrupo1.auth.repository.UserRepository;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.domain.Account;
+import br.accenture.ProjetoFinalAccentureGrupo1.banking.domain.CreditCard;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.domain.Transaction;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.dto.AccountResponse;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.dto.TransactionResponse;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.enums.AccountStatus;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.enums.AccountType;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.enums.TransactionType;
-import br.accenture.ProjetoFinalAccentureGrupo1.banking.exceptions.AccountAlreadyExistsException;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.exceptions.AccountBlockedException;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.exceptions.AccountNotActiveException;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.exceptions.AccountNotFoundException;
@@ -18,6 +20,7 @@ import br.accenture.ProjetoFinalAccentureGrupo1.banking.exceptions.InsufficientB
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.exceptions.InvalidAmountException;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.repository.AccountRepository;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.repository.TransactionRepository;
+import br.accenture.ProjetoFinalAccentureGrupo1.banking.utils.AccountNumberGenerator;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
@@ -32,7 +35,7 @@ public class AccountService {
 
     private static final BigDecimal MERCHANT_INITIAL_BALANCE = new BigDecimal("10000000.00");
 
-    private final UserRepository userRepository;
+    private final UserFacade userFacade;
     private final AccountRepository accountRepository;
     private final TransactionRepository transactionRepository;
     private final AccountNumberGenerator accountNumberGenerator;
@@ -41,14 +44,6 @@ public class AccountService {
     public Account createForUser(Long userId) {
         return accountRepository.findByUserId(userId)
                 .orElseGet(() -> createCustomerAccount(userId));
-    }
-
-    @Transactional
-    public Account createAccountForUser(Long userId) {
-        if (accountRepository.existsByUserId(userId)) {
-            throw new AccountAlreadyExistsException(userId);
-        }
-        return createCustomerAccount(userId);
     }
 
     @Transactional
@@ -67,6 +62,10 @@ public class AccountService {
         return toAccountResponse(findAccountByUserEmail(email));
     }
 
+    public Account findByIdAdmin(Long id){
+        return accountRepository.findById(id).orElseThrow(() -> new AccountNotFoundException(id));
+    }
+
     @Transactional(readOnly = true)
     public BigDecimal getBalance(Long userId) {
         return findByUserId(userId).getBalance();
@@ -75,6 +74,23 @@ public class AccountService {
     @Transactional(readOnly = true)
     public BigDecimal getBalanceByEmail(String email) {
         return findAccountByUserEmail(email).getBalance();
+    }
+
+    @Transactional
+    public Account debit(Account account, BigDecimal amount, String reference, String description, TransactionType type) {
+        validatePositiveAmount(amount);
+        ensureCanDebit(account);
+        ensureSufficientBalance(account, amount);
+        debitAccount(account, amount, reference, description, type);
+        return accountRepository.save(account);
+    }
+
+    @Transactional
+    public Account credit(Account account, BigDecimal amount, String reference, String description, TransactionType type) {
+        validatePositiveAmount(amount);
+        ensureNotBlocked(account);
+        creditAccount(account, amount, reference, description, type);
+        return accountRepository.save(account);
     }
 
     @Transactional
@@ -87,49 +103,15 @@ public class AccountService {
     }
 
     @Transactional
-    public Account debit(Account account, BigDecimal amount) {
-        validatePositiveAmount(amount);
-        ensureCanDebit(account);
-        ensureSufficientBalance(account, amount);
-        debitAccount(account, amount, null, "Debito em conta", TransactionType.PAYMENT);
-        return accountRepository.save(account);
-    }
+    public void refund(Long toUserId, BigDecimal amount, String reference, String description) {
+        Account merchant = accountRepository.findFirstByAccountType(AccountType.MERCHANT)
+                .orElseThrow(() -> new IllegalStateException(
+                        "Conta MERCHANT não encontrada — CompanyAccountInitializer não rodou!"
+                ));
 
-    @Transactional
-    public void debit(Long userId, BigDecimal amount, String reference) {
-        Account account = findByUserId(userId);
-        validatePositiveAmount(amount);
-        ensureCanDebit(account);
-        ensureSufficientBalance(account, amount);
-        debitAccount(account, amount, reference, "Debito em conta", TransactionType.PAYMENT);
-        accountRepository.save(account);
-    }
-
-    @Transactional
-    public void debitInvoicePayment(Long userId, BigDecimal amount, String reference, String description) {
-        Account account = findByUserId(userId);
-        validatePositiveAmount(amount);
-        ensureCanDebit(account);
-        ensureSufficientBalance(account, amount);
-        debitAccount(account, amount, reference, description, TransactionType.PAYMENT);
-        accountRepository.save(account);
-    }
-
-    @Transactional
-    public Account credit(Account account, BigDecimal amount) {
-        validatePositiveAmount(amount);
-        ensureNotBlocked(account);
-        creditAccount(account, amount, null, "Credito em conta", TransactionType.REFUND);
-        return accountRepository.save(account);
-    }
-
-    @Transactional
-    public void credit(Long userId, BigDecimal amount, String reference) {
-        Account account = findByUserId(userId);
-        validatePositiveAmount(amount);
-        ensureNotBlocked(account);
-        creditAccount(account, amount, reference, "Credito em conta", TransactionType.REFUND);
-        accountRepository.save(account);
+        Account customer = findByUserId(toUserId);
+        debit(merchant, amount, reference, description, TransactionType.REFUND);
+        credit(customer, amount, reference, description, TransactionType.REFUND);
     }
 
     @Transactional
@@ -142,9 +124,16 @@ public class AccountService {
         accountRepository.save(merchant);
     }
 
+
     @Transactional
-    public void creditMerchantForCreditCardSale(BigDecimal amount) {
-        creditMerchant(amount, null, "Venda aprovada no cartao de credito");
+    public void debitForInvoicePayment(Account account, BigDecimal amount, String reference, String description) {
+        validatePositiveAmount(amount);
+        if (account.getStatus() == AccountStatus.BLOCKED) {
+            throw new AccountNotActiveException(account.getStatus());
+        }
+        ensureSufficientBalance(account, amount);
+        debitAccount(account, amount, reference, description, TransactionType.PAYMENT);
+        accountRepository.save(account);
     }
 
     @Transactional(readOnly = true)
@@ -192,19 +181,21 @@ public class AccountService {
 
     @Transactional
     public AccountResponse blockAccount(Long accountId) {
-        Account account = accountRepository.findById(accountId)
-                .orElseThrow(() -> new AccountNotFoundException(accountId));
-                
+        Account account = accountRepository.findById(accountId).orElseThrow(() -> new AccountNotFoundException(accountId));
         account.setStatus(AccountStatus.BLOCKED);
         return toAccountResponse(accountRepository.save(account));
     }
 
-    private Account createCustomerAccount(Long userId) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new UsernameNotFoundException("Usuario nao encontrado: " + userId));
+    @Transactional
+    public AccountResponse unBlockAccount(Long accountId) {
+        Account account = accountRepository.findById(accountId).orElseThrow(() -> new AccountNotFoundException(accountId));
+        account.setStatus(AccountStatus.ACTIVE);
+        return toAccountResponse(accountRepository.save(account));
+    }
 
+    private Account createCustomerAccount(Long userId) {
         Account account = Account.builder()
-                .userId(user.getId())
+                .userId(userId)
                 .accountNumber(generateUniqueAccountNumber())
                 .balance(BigDecimal.ZERO)
                 .accountType(AccountType.CUSTOMER)
@@ -215,9 +206,8 @@ public class AccountService {
     }
 
     private Account findAccountByUserEmail(String email) {
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new UsernameNotFoundException("Usuario nao encontrado: " + email));
-        return findByUserId(user.getId());
+        UserInfo user = userFacade.findByEmail(email);
+        return findByUserId(user.id());
     }
 
     private void creditAccount(Account account, BigDecimal amount, String reference, String description, TransactionType type) {

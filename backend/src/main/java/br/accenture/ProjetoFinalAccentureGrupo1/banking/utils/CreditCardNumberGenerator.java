@@ -1,4 +1,4 @@
-package br.accenture.ProjetoFinalAccentureGrupo1.banking.services;
+package br.accenture.ProjetoFinalAccentureGrupo1.banking.utils;
 
 import org.springframework.stereotype.Component;
 

@@ -1,9 +1,11 @@
 package br.accenture.ProjetoFinalAccentureGrupo1.banking.controllers;
 
+import br.accenture.ProjetoFinalAccentureGrupo1.banking.domain.Account;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.domain.Transaction;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.dto.AccountResponse;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.dto.DepositRequest;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.services.AccountService;
+import br.accenture.ProjetoFinalAccentureGrupo1.banking.services.CreditCardService;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.services.TransactionService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -14,10 +16,11 @@ import java.util.List;
 @RestController
 @RequestMapping("/banking/admin/accounts")
 @RequiredArgsConstructor
-// @PreAuthorize("hasRole('BANKING_ADMIN')")
+@PreAuthorize("hasRole('BANKING_ADMIN')")
 public class AdminAccountController {
 
     private final AccountService accountService;
+    private final CreditCardService creditCardService;
     private final TransactionService transactionService;
 
     @GetMapping
@@ -39,6 +42,15 @@ public class AdminAccountController {
 
     @PostMapping("/{id}/block")
     public AccountResponse blockAccount(@PathVariable Long id) {
+        Account account = accountService.findByIdAdmin(id);
+        creditCardService.blockCardByAccount(account);
         return accountService.blockAccount(id);
+    }
+
+    @PostMapping("/{id}/unblock")
+    public AccountResponse unBlockAccount(@PathVariable Long id) {
+        Account account = accountService.findByIdAdmin(id);
+        creditCardService.unblockCardByAccount(account);
+        return accountService.unBlockAccount(id);
     }
 }

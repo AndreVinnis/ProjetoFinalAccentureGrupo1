@@ -78,6 +78,11 @@ public class GlobalExceptionHandler {
         return error(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage());
     }
 
+    @ExceptionHandler(CryptographyException.class)
+    public ResponseEntity<ErrorResponse> handleEncryption( CryptographyException ex) {
+        return error(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage());
+    }
+
     private ResponseEntity<ErrorResponse> error(HttpStatus status, String message) {
         return ResponseEntity.status(status).body(
                 new ErrorResponse(Instant.now(), status.value(), message)

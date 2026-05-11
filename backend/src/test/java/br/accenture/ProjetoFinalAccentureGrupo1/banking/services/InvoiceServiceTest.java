@@ -1,20 +1,23 @@
 package br.accenture.ProjetoFinalAccentureGrupo1.banking.services;
 
-import br.accenture.ProjetoFinalAccentureGrupo1.auth.domain.User;
-import br.accenture.ProjetoFinalAccentureGrupo1.auth.repository.UserRepository;
+import br.accenture.ProjetoFinalAccentureGrupo1.auth.api.UserFacade;
+import br.accenture.ProjetoFinalAccentureGrupo1.auth.api.UserInfo;
+import br.accenture.ProjetoFinalAccentureGrupo1.auth.enums.Role;
+import br.accenture.ProjetoFinalAccentureGrupo1.banking.domain.Account;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.domain.CreditCard;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.domain.Invoice;
-import br.accenture.ProjetoFinalAccentureGrupo1.banking.dto.InvoiceResponse;
+import br.accenture.ProjetoFinalAccentureGrupo1.banking.enums.AccountStatus;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.enums.CreditCardStatus;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.enums.InvoiceStatus;
+import br.accenture.ProjetoFinalAccentureGrupo1.banking.events.InvoiceOverdueEvent;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.events.InvoicePaidEvent;
-import br.accenture.ProjetoFinalAccentureGrupo1.banking.exceptions.InvalidInvoicePaymentException;
+import br.accenture.ProjetoFinalAccentureGrupo1.banking.exceptions.*;
+import br.accenture.ProjetoFinalAccentureGrupo1.banking.repository.AccountRepository;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.repository.CreditCardRepository;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.repository.InvoiceRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -22,164 +25,280 @@ import org.springframework.context.ApplicationEventPublisher;
 
 import java.math.BigDecimal;
 import java.time.Clock;
-import java.time.Instant;
 import java.time.LocalDate;
-import java.time.ZoneId;
 import java.time.YearMonth;
+import java.time.ZoneId;
+import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.Mockito.any;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class InvoiceServiceTest {
 
-    @Mock
-    private InvoiceRepository invoiceRepository;
-
-    @Mock
-    private CreditCardRepository creditCardRepository;
-
-    @Mock
-    private UserRepository userRepository;
-
-    @Mock
-    private AccountService accountService;
-
-    @Mock
-    private ApplicationEventPublisher eventPublisher;
-
-    private final Clock clock = Clock.fixed(
-            Instant.parse("2026-05-08T12:00:00Z"),
-            ZoneId.of("UTC")
-    );
+    @Mock private UserFacade userFacade;
+    @Mock private InvoiceRepository invoiceRepository;
+    @Mock private CreditCardRepository creditCardRepository;
+    @Mock private AccountService accountService;
+    @Mock private AccountRepository accountRepository;
+    @Mock private ApplicationEventPublisher eventPublisher;
+    @Mock private Clock clock;
 
     @InjectMocks
     private InvoiceService invoiceService;
 
-    private User user;
+    private Account account;
     private CreditCard card;
-    private Invoice invoice;
+    private Invoice openInvoice;
+    private Invoice closedInvoice;
+    private Invoice overdueInvoice;
+    private UserInfo userInfo;
 
     @BeforeEach
     void setUp() {
-        invoiceService = new InvoiceService(
-                invoiceRepository,
-                creditCardRepository,
-                userRepository,
-                accountService,
-                eventPublisher,
-                clock
-        );
-
-        user = User.builder()
+        account = Account.builder()
                 .id(1L)
-                .name("Ana Silva")
-                .email("ana@email.com")
+                .userId(10L)
+                .status(AccountStatus.ACTIVE)
                 .build();
 
         card = CreditCard.builder()
-                .id(10L)
-                .user(user)
-                .holderName("Ana Silva")
-                .status(CreditCardStatus.ACTIVE)
-                .creditLimit(new BigDecimal("1000.00"))
-                .availableLimit(new BigDecimal("750.00"))
-                .invoiceBalance(new BigDecimal("250.00"))
+                .id(100L)
+                .account(account)
                 .closingDay(25)
                 .dueDay(10)
+                .creditLimit(new BigDecimal("1000.00"))
+                .availableLimit(new BigDecimal("700.00"))
+                .status(CreditCardStatus.ACTIVE)
                 .build();
 
-        invoice = Invoice.builder()
-                .id(20L)
-                .card(card)
+        openInvoice = Invoice.builder()
+                .id(50L).card(card)
                 .referenceMonth(YearMonth.of(2026, 5))
                 .closingDate(LocalDate.of(2026, 5, 25))
                 .dueDate(LocalDate.of(2026, 6, 10))
-                .totalAmount(new BigDecimal("250.00"))
+                .totalAmount(new BigDecimal("300.00"))
+                .paidAmount(BigDecimal.ZERO)
+                .status(InvoiceStatus.OPEN)
+                .build();
+
+        closedInvoice = Invoice.builder()
+                .id(51L).card(card)
+                .referenceMonth(YearMonth.of(2026, 4))
+                .closingDate(LocalDate.of(2026, 4, 25))
+                .dueDate(LocalDate.of(2026, 5, 10))
+                .totalAmount(new BigDecimal("100.00"))
                 .paidAmount(BigDecimal.ZERO)
                 .status(InvoiceStatus.CLOSED)
                 .build();
+
+        overdueInvoice = Invoice.builder()
+                .id(52L).card(card)
+                .referenceMonth(YearMonth.of(2026, 3))
+                .closingDate(LocalDate.of(2026, 3, 25))
+                .dueDate(LocalDate.of(2026, 4, 10))
+                .totalAmount(new BigDecimal("200.00"))
+                .paidAmount(BigDecimal.ZERO)
+                .status(InvoiceStatus.OVERDUE)
+                .build();
+
+        userInfo = new UserInfo(10L, "Ana", "ana@email.com",
+                "12345678901", LocalDate.of(1990, 1, 1), Set.of(Role.CUSTOMER));
+    }
+
+    private void mockClockToday(LocalDate today) {
+        when(clock.instant()).thenReturn(
+                today.atStartOfDay(ZoneId.systemDefault()).toInstant()
+        );
+        when(clock.getZone()).thenReturn(ZoneId.systemDefault());
     }
 
     @Test
-    void payInvoice_DeveQuitarFaturaERestaurarLimite() {
-        when(userRepository.findByEmail("ana@email.com")).thenReturn(Optional.of(user));
-        when(invoiceRepository.findById(20L)).thenReturn(Optional.of(invoice));
-        when(invoiceRepository.save(any(Invoice.class))).thenAnswer(invocation -> invocation.getArgument(0));
+    void getOrCreateOpenInvoice_DeveRetornarExistente_QuandoJaTemAberta() {
+        when(invoiceRepository.findByCardIdAndStatus(100L, InvoiceStatus.OPEN))
+                .thenReturn(Optional.of(openInvoice));
 
-        InvoiceResponse response = invoiceService.payInvoice(20L, "ana@email.com", new BigDecimal("250.00"));
+        Invoice result = invoiceService.getOrCreateOpenInvoice(card);
 
-        assertEquals(InvoiceStatus.PAID, response.status());
-        assertEquals(new BigDecimal("250.00"), response.paidAmount());
-        assertEquals(Instant.parse("2026-05-08T12:00:00Z"), response.paidAt());
-        assertEquals(new BigDecimal("1000.00"), card.getAvailableLimit());
-        assertEquals(new BigDecimal("0.00"), card.getInvoiceBalance());
-        verify(accountService).debitInvoicePayment(1L, new BigDecimal("250.00"), "INVOICE-20", "Pagamento de fatura");
-        verify(creditCardRepository).save(card);
-
-        ArgumentCaptor<InvoicePaidEvent> eventCaptor = ArgumentCaptor.forClass(InvoicePaidEvent.class);
-        verify(eventPublisher).publishEvent(eventCaptor.capture());
-        assertEquals(20L, eventCaptor.getValue().invoiceId());
-        assertEquals(1L, eventCaptor.getValue().userId());
-        assertEquals(new BigDecimal("250.00"), eventCaptor.getValue().amountPaid());
+        assertSame(openInvoice, result);
+        verify(invoiceRepository, never()).save(any());
     }
 
     @Test
-    void payInvoice_DevePermitirPagamentoParcialSemPublicarEvento() {
-        when(userRepository.findByEmail("ana@email.com")).thenReturn(Optional.of(user));
-        when(invoiceRepository.findById(20L)).thenReturn(Optional.of(invoice));
-        when(invoiceRepository.save(any(Invoice.class))).thenAnswer(invocation -> invocation.getArgument(0));
+    void getOrCreateOpenInvoice_DeveCriarNova_QuandoNaoExisteAberta() {
+        mockClockToday(LocalDate.of(2026, 5, 10));
+        when(invoiceRepository.findByCardIdAndStatus(100L, InvoiceStatus.OPEN))
+                .thenReturn(Optional.empty());
+        when(invoiceRepository.findByCardIdAndReferenceMonth(eq(100L), any()))
+                .thenReturn(Optional.empty());
+        when(invoiceRepository.save(any(Invoice.class)))
+                .thenAnswer(inv -> inv.getArgument(0));
 
-        InvoiceResponse response = invoiceService.payInvoice(20L, "ana@email.com", new BigDecimal("100.00"));
+        Invoice result = invoiceService.getOrCreateOpenInvoice(card);
 
-        assertEquals(InvoiceStatus.CLOSED, response.status());
-        assertEquals(new BigDecimal("100.00"), response.paidAmount());
-        assertEquals(new BigDecimal("850.00"), card.getAvailableLimit());
-        assertEquals(new BigDecimal("150.00"), card.getInvoiceBalance());
-        verify(eventPublisher, never()).publishEvent(any());
+        assertNotNull(result);
+        assertEquals(InvoiceStatus.OPEN, result.getStatus());
+        assertEquals(YearMonth.of(2026, 5), result.getReferenceMonth());
+        assertEquals(LocalDate.of(2026, 5, 25), result.getClosingDate());
+        assertEquals(LocalDate.of(2026, 6, 10), result.getDueDate());
+        assertEquals(BigDecimal.ZERO, result.getTotalAmount());
     }
 
     @Test
-    void payInvoice_DeveRecusarFaturaAberta() {
-        invoice.setStatus(InvoiceStatus.OPEN);
+    void closeInvoice_DeveFechar_QuandoOpen() {
+        when(invoiceRepository.findById(50L)).thenReturn(Optional.of(openInvoice));
+        when(invoiceRepository.save(openInvoice)).thenReturn(openInvoice);
 
-        when(userRepository.findByEmail("ana@email.com")).thenReturn(Optional.of(user));
-        when(invoiceRepository.findById(20L)).thenReturn(Optional.of(invoice));
+        Invoice result = invoiceService.closeInvoice(50L);
+
+        assertEquals(InvoiceStatus.CLOSED, result.getStatus());
+        assertNotNull(result.getClosedAt());
+    }
+
+    @Test
+    void closeInvoice_DeveLancarException_QuandoNaoEstaAberta() {
+        when(invoiceRepository.findById(51L)).thenReturn(Optional.of(closedInvoice));
 
         assertThrows(
-                InvalidInvoicePaymentException.class,
-                () -> invoiceService.payInvoice(20L, "ana@email.com", new BigDecimal("100.00"))
+                InvoiceNotCloseableException.class,
+                () -> invoiceService.closeInvoice(51L)
         );
-
-        verify(accountService, never()).debitInvoicePayment(any(), any(), any(), any());
-        verify(eventPublisher, never()).publishEvent(any());
+        verify(invoiceRepository, never()).save(any());
     }
 
     @Test
-    void getCurrentInvoice_DeveCriarProximoMes_QuandoMesAtualJaTemFaturaPaga() {
-        invoice.setStatus(InvoiceStatus.PAID);
+    void closeInvoice_DeveLancarException_QuandoNaoEncontrada() {
+        when(invoiceRepository.findById(999L)).thenReturn(Optional.empty());
 
-        when(invoiceRepository.findByCardIdAndStatus(10L, InvoiceStatus.OPEN)).thenReturn(Optional.empty());
-        when(invoiceRepository.findByCardIdAndReferenceMonth(10L, YearMonth.of(2026, 5)))
-                .thenReturn(Optional.of(invoice));
-        when(invoiceRepository.findByCardIdAndReferenceMonth(10L, YearMonth.of(2026, 6)))
-                .thenReturn(Optional.empty());
-        when(invoiceRepository.save(any(Invoice.class))).thenAnswer(invocation -> {
-            Invoice saved = invocation.getArgument(0);
-            saved.setId(21L);
-            return saved;
-        });
+        assertThrows(
+                InvoiceNotFoundException.class,
+                () -> invoiceService.closeInvoice(999L)
+        );
+    }
 
-        InvoiceResponse response = invoiceService.getCurrentInvoice(card);
+    @Test
+    void closeDueInvoices_DeveFecharTodasOpenComDataPassada() {
+        mockClockToday(LocalDate.of(2026, 5, 26));
+        when(invoiceRepository.findByStatusAndClosingDateLessThanEqual(
+                InvoiceStatus.OPEN, LocalDate.of(2026, 5, 26)))
+                .thenReturn(List.of(openInvoice));
 
-        assertEquals(InvoiceStatus.OPEN, response.status());
-        assertEquals(YearMonth.of(2026, 6), response.referenceMonth());
-        assertEquals(LocalDate.of(2026, 6, 25), response.closingDate());
-        assertEquals(LocalDate.of(2026, 7, 10), response.dueDate());
+        invoiceService.closeDueInvoices();
+
+        assertEquals(InvoiceStatus.CLOSED, openInvoice.getStatus());
+        assertNotNull(openInvoice.getClosedAt());
+        verify(invoiceRepository).saveAll(List.of(openInvoice));
+    }
+
+    @Test
+    void payInvoice_DeveQuitarECreditarLimite_QuandoPagamentoIntegral() {
+        when(invoiceRepository.findById(51L)).thenReturn(Optional.of(closedInvoice));
+        when(userFacade.findById(10L)).thenReturn(userInfo);
+        when(invoiceRepository.save(any(Invoice.class)))
+                .thenAnswer(inv -> inv.getArgument(0));
+
+        invoiceService.payInvoice(51L, new BigDecimal("100.00"));
+
+        assertEquals(new BigDecimal("100.00"), closedInvoice.getPaidAmount());
+        assertEquals(InvoiceStatus.PAID, closedInvoice.getStatus());
+        assertNotNull(closedInvoice.getPaidAt());
+        // limite restaurado
+        assertEquals(new BigDecimal("800.00"), card.getAvailableLimit());
+        verify(eventPublisher).publishEvent(any(InvoicePaidEvent.class));
+    }
+
+    @Test
+    void payInvoice_DevePagarParcialmente_SemMudarStatus() {
+        when(invoiceRepository.findById(51L)).thenReturn(Optional.of(closedInvoice));
+        when(invoiceRepository.save(any(Invoice.class)))
+                .thenAnswer(inv -> inv.getArgument(0));
+
+        invoiceService.payInvoice(51L, new BigDecimal("40.00"));
+
+        assertEquals(new BigDecimal("40.00"), closedInvoice.getPaidAmount());
+        // ainda CLOSED — não quitou
+        assertEquals(InvoiceStatus.CLOSED, closedInvoice.getStatus());
+        assertEquals(new BigDecimal("740.00"), card.getAvailableLimit());
+        verify(eventPublisher, never()).publishEvent(any(InvoicePaidEvent.class));
+    }
+
+    @Test
+    void payInvoice_DeveDesbloquearContaECartao_QuandoQuitaOverdue() {
+        account.setStatus(AccountStatus.RESTRICTED);
+        card.setStatus(CreditCardStatus.BLOCKED);
+        when(invoiceRepository.findById(52L)).thenReturn(Optional.of(overdueInvoice));
+        when(userFacade.findById(10L)).thenReturn(userInfo);
+        when(invoiceRepository.save(any(Invoice.class)))
+                .thenAnswer(inv -> inv.getArgument(0));
+
+        invoiceService.payInvoice(52L, new BigDecimal("200.00"));
+
+        assertEquals(InvoiceStatus.PAID, overdueInvoice.getStatus());
+        assertEquals(AccountStatus.ACTIVE, account.getStatus());
+        assertEquals(CreditCardStatus.ACTIVE, card.getStatus());
+        verify(accountRepository).save(account);
+    }
+
+    @Test
+    void payInvoice_DeveLancarException_QuandoExcedeSaldoDevedor() {
+        when(invoiceRepository.findById(51L)).thenReturn(Optional.of(closedInvoice));
+
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> invoiceService.payInvoice(51L, new BigDecimal("999.00"))
+        );
+        verify(accountService, never()).debitForInvoicePayment(any(), any(), any(), any());
+    }
+
+    @Test
+    void payInvoice_DeveLancarException_QuandoStatusInvalido() {
+        when(invoiceRepository.findById(50L)).thenReturn(Optional.of(openInvoice));
+
+        assertThrows(
+                InvoiceNotPayableException.class,
+                () -> invoiceService.payInvoice(50L, new BigDecimal("100.00"))
+        );
+    }
+
+    @Test
+    void chargeDueInvoices_DeveCobrarEMarcarPaid_QuandoSaldoSuficiente() {
+        mockClockToday(LocalDate.of(2026, 5, 11));
+        when(invoiceRepository.findByStatusAndDueDateLessThanEqual(
+                InvoiceStatus.CLOSED, LocalDate.of(2026, 5, 11)))
+                .thenReturn(List.of(closedInvoice));
+        // mocks pra payInvoice (chamado internamente)
+        when(invoiceRepository.findById(51L)).thenReturn(Optional.of(closedInvoice));
+        when(userFacade.findById(10L)).thenReturn(userInfo);
+        when(invoiceRepository.save(any(Invoice.class)))
+                .thenAnswer(inv -> inv.getArgument(0));
+
+        invoiceService.chargeDueInvoices();
+
+        assertEquals(InvoiceStatus.PAID, closedInvoice.getStatus());
+        verify(eventPublisher).publishEvent(any(InvoicePaidEvent.class));
+    }
+
+    @Test
+    void chargeDueInvoices_DeveMarcarOverdue_QuandoSaldoInsuficiente() {
+        mockClockToday(LocalDate.of(2026, 5, 11));
+        when(invoiceRepository.findByStatusAndDueDateLessThanEqual(
+                InvoiceStatus.CLOSED, LocalDate.of(2026, 5, 11)))
+                .thenReturn(List.of(closedInvoice));
+        when(invoiceRepository.findById(51L)).thenReturn(Optional.of(closedInvoice));
+        when(userFacade.findById(10L)).thenReturn(userInfo);
+        // simula saldo insuficiente
+        doThrow(new InsufficientBalanceException(BigDecimal.ZERO, new BigDecimal("100.00")))
+                .when(accountService).debitForInvoicePayment(any(), any(), any(), any());
+
+        invoiceService.chargeDueInvoices();
+
+        assertEquals(InvoiceStatus.OVERDUE, closedInvoice.getStatus());
+        assertEquals(AccountStatus.RESTRICTED, account.getStatus());
+        assertEquals(CreditCardStatus.BLOCKED, card.getStatus());
+        verify(eventPublisher).publishEvent(any(InvoiceOverdueEvent.class));
     }
 }

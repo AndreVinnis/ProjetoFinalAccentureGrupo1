@@ -46,7 +46,7 @@ public class BankingExceptionHandler {
             AccountRestrictedException.class,
             InsufficientBalanceException.class,
             InvalidAmountException.class,
-            InvalidInvoicePaymentException.class,
+            InvoiceNotPayableException.class,
             PaymentRequestNotPayableException.class
     })
     public ResponseEntity<ErrorResponse> handleBusinessRule(RuntimeException ex) {
@@ -60,6 +60,16 @@ public class BankingExceptionHandler {
 
     @ExceptionHandler(InsufficientCreditLimitException.class)
     public ResponseEntity<ErrorResponse> handleInsufficientCreditLimit(InsufficientCreditLimitException ex) {
+        return error(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage());
+    }
+
+    @ExceptionHandler(WrongCvvException.class)
+    public ResponseEntity<ErrorResponse> handleWrongCvv(WrongCvvException ex) {
+        return error(HttpStatus.BAD_REQUEST, ex.getMessage());
+    }
+
+    @ExceptionHandler(InvoiceNotCloseableException.class)
+    public ResponseEntity<ErrorResponse> handleInvoiceNotCloseable(InvoiceNotCloseableException ex) {
         return error(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage());
     }
 

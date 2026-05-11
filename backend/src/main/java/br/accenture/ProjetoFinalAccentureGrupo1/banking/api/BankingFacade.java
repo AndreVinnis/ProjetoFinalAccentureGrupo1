@@ -14,9 +14,9 @@ public interface BankingFacade {
 
     AccountInfo getAccountInfo(Long userId);
 
-    void chargeCard(Long userId, BigDecimal amount, String description, String reference);
+    void chargeCard(Long cardId, BigDecimal amount, String cvv, String description, String reference);
 
-    void issueRefund(Long toUserId, BigDecimal amount, String description);
+    void issueRefund(Long toUserId, BigDecimal amount, String reference, String description);
 
     /**
      * Cria uma cobrança PIX em nome da empresa.
