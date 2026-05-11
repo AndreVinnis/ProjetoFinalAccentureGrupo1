@@ -1,0 +1,46 @@
+name: Backend Logs
+
+on:
+  push:
+    branches:
+      - 'feat/**'
+      - 'fix/**'
+      - 'docs/**'
+      - 'test/**'
+      - 'refactor/**'
+      - 'chore/**'
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  collect-logs:
+    name: Coleta dos logs da aplicação
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - name: Checkout do código
+        uses: actions/checkout@v4
+
+      - name: Setup do JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: Roda testes com Maven (gera logs)
+        run: mvn -B clean test
+
+      - name: Upload dos arquivos de log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-logs
+          path: backend/logs/
+          if-no-files-found: warn
+          retention-days: 30
