@@ -2,6 +2,7 @@ package br.accenture.ProjetoFinalAccentureGrupo1.banking.api;
 
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.domain.Account;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.domain.PaymentRequest;
+import br.accenture.ProjetoFinalAccentureGrupo1.banking.dto.CardValidationResponse;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.enums.AccountType;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.enums.PaymentRequestStatus;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.exceptions.PaymentRequestNotFoundException;
@@ -44,6 +45,11 @@ public class BankingFacadeImpl implements BankingFacade {
                 account.getBalance(),
                 account.getStatus()
         );
+    }
+
+    @Override
+    public CardValidationResponse verifyCard(String cardNumber, String cvv, int expirationMonth, int expirationYear) {
+        return creditCardService.validateCard(cardNumber, cvv, expirationMonth, expirationYear);
     }
 
     @Override

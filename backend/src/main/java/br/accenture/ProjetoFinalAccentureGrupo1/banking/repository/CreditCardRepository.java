@@ -12,5 +12,7 @@ public interface CreditCardRepository extends JpaRepository<CreditCard, Long> {
 
     Optional<CreditCard> findByAccount(Account account);
 
+    Optional<CreditCard> findByNumberHash(String numbers);
+
     boolean existsByAccount(Account account);
 }
