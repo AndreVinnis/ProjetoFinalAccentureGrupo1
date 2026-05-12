@@ -20,6 +20,11 @@ public class EcommerceExceptionHandler {
         return error(HttpStatus.NOT_FOUND, ex.getMessage());
     }
 
+    @ExceptionHandler(CartNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleCartItemNotFound(CartNotFoundException ex) {
+        return error(HttpStatus.NOT_FOUND, ex.getMessage());
+    }
+
     @ExceptionHandler(ProductNotAvailableException.class)
     public ResponseEntity<ErrorResponse> handleProductNotAvailable(ProductNotAvailableException ex) {
         return error(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage());

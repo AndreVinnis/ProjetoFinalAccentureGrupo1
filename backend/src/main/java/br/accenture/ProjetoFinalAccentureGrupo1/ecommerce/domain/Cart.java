@@ -1,8 +1,9 @@
 package br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.domain;
 
+import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.enums.CartStatus;
 import jakarta.persistence.*;
 import lombok.*;
-
+import org.hibernate.annotations.CreationTimestamp;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -24,16 +25,30 @@ public class Cart {
     @JoinColumn(name = "customer_id", nullable = false, unique = true)
     private Customer customer;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 16)
+    @Builder.Default
+    private CartStatus status = CartStatus.ACTIVE;
+
     @OneToMany(mappedBy = "cart", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private List<CartItem> items = new ArrayList<>();
 
-    @Column(name = "updated_at", nullable = false)
-    private Instant updatedAt;
+    @CreationTimestamp
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private Instant createdAt;
 
-    @PrePersist
-    @PreUpdate
-    void touch() {
-        this.updatedAt = Instant.now();
+    @Column(name = "reserved_at")
+    private Instant reservedAt;
+
+    public void markReserved() {
+        this.status = CartStatus.RESERVED;
+        this.reservedAt = Instant.now();
+    }
+
+    public void clearAndReactivate() {
+        this.items.clear();
+        this.status = CartStatus.ACTIVE;
+        this.reservedAt = null;
     }
 }

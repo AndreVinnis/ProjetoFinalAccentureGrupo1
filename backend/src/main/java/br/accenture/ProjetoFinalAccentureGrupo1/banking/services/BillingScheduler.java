@@ -29,6 +29,7 @@ import org.springframework.stereotype.Component;
  */
 @Component
 @RequiredArgsConstructor
+// Autor: André Vinícius Barros Macambira
 public class BillingScheduler {
 
     private static final Logger log = LoggerFactory.getLogger(BillingScheduler.class);
