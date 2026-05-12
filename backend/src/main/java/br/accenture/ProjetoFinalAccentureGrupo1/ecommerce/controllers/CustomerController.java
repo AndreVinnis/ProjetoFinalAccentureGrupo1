@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/customers")
 @RequiredArgsConstructor
+//Autor: Cainã Moura Araújo
 public class CustomerController {
 
     private final CustomerService customerService;

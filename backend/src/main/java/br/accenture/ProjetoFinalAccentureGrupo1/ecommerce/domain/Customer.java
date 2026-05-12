@@ -25,6 +25,7 @@ import java.time.Instant;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+//Autor: Cainã Moura Araújo
 public class Customer {
 
     @Id

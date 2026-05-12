@@ -2,7 +2,7 @@ package br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.dto;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
-
+//Autor: Cainã Moura Araújo
 public record UpdateCustomerRequest(
         @NotBlank(message = "Endereco de entrega e obrigatorio")
         @Size(max = 500, message = "Endereco de entrega deve ter no maximo 500 caracteres")

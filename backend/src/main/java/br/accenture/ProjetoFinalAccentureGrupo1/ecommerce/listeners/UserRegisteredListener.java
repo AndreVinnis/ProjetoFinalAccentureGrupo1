@@ -10,6 +10,7 @@ import org.springframework.stereotype.Component;
 @Component("ecommerceUserRegisteredListener")
 @RequiredArgsConstructor
 @Slf4j
+//Autor: Cainã Moura Araújo
 public class UserRegisteredListener {
 
     private final CustomerService customerService;

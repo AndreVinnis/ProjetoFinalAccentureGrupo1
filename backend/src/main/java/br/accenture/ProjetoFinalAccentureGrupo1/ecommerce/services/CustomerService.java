@@ -13,6 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
+//Autor: Cainã Moura Araújo
 public class CustomerService {
 
     private static final int SILVER_MIN_PURCHASES = 5;
