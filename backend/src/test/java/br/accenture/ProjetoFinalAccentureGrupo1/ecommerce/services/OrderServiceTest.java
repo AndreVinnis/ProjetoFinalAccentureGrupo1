@@ -9,6 +9,7 @@ import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.domain.Customer;
 import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.domain.Order;
 import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.domain.OrderItem;
 import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.domain.Product;
+import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.domain.SavedCard;
 import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.dto.OrderResponse;
 import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.enums.CartStatus;
 import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.enums.OrderStatus;
@@ -58,6 +59,7 @@ class OrderServiceTest {
     @Mock private OrderRepository orderRepository;
     @Mock private BankingFacade bankingFacade;
     @Mock private UserFacade userFacade;
+    @Mock private SavedCardService savedCardService;
     @Mock private ApplicationEventPublisher eventPublisher;
     @Mock private Clock clock;
 
@@ -142,6 +144,40 @@ class OrderServiceTest {
         assertThrows(CartWasNotClosedException.class, () -> orderService.checkoutPix(EMAIL));
         verify(orderRepository, never()).save(any());
         verify(bankingFacade, never()).createPaymentRequest(any(), any(), any());
+    }
+
+    @Test
+    void checkoutCard_DeveCobrarCartaoSalvoECriarPedidoPago_QuandoCarrinhoFechado() {
+        SavedCard savedCard = SavedCard.builder()
+                .id(30L)
+                .customer(customer)
+                .bankingCardId(300L)
+                .last4Digits("1111")
+                .build();
+        when(customerService.findByEmail(EMAIL)).thenReturn(customer);
+        when(cartRepository.findByCustomer_Id(1L)).thenReturn(Optional.of(cart));
+        when(cartService.isClosed(cart)).thenReturn(true);
+        when(savedCardService.findByIdAndCustomer(30L, 1L)).thenReturn(savedCard);
+        when(userFacade.findByEmail(EMAIL)).thenReturn(userInfo());
+        when(orderRepository.save(any(Order.class))).thenAnswer(inv -> {
+            Order o = inv.getArgument(0);
+            o.setId(201L);
+            return o;
+        });
+
+        OrderResponse response = orderService.checkoutCard(EMAIL, 30L, "123");
+
+        assertEquals(201L, response.orderId());
+        assertEquals(OrderStatus.PAID, response.status());
+        assertEquals(PaymentMethod.CREDIT_CARD, response.paymentMethod());
+        verify(bankingFacade).chargeCard(eq(300L), eq(new BigDecimal("300.00")), eq("123"), any(), eq("ORDER-201"));
+        verify(productService).consumeReserved(100L, 2);
+        assertEquals(CartStatus.ACTIVE, cart.getStatus());
+        assertEquals(0, cart.getItems().size());
+
+        ArgumentCaptor<OrderPaidEvent> evCap = ArgumentCaptor.forClass(OrderPaidEvent.class);
+        verify(eventPublisher).publishEvent(evCap.capture());
+        assertEquals("CREDIT_CARD", evCap.getValue().paymentMethod());
     }
 
     @Test

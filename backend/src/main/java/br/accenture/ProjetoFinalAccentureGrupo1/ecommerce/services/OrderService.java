@@ -43,6 +43,7 @@ public class OrderService {
     private final OrderRepository orderRepository;
     private final BankingFacade bankingFacade;
     private final UserFacade userFacade;
+    private final SavedCardService savedCardService;
     private final ApplicationEventPublisher eventPublisher;
     private final Clock clock;
 
@@ -87,8 +88,70 @@ public class OrderService {
     }
 
     @Transactional
-    public Object checkoutCard(String customerEmail, Long savedCardId, String cvv) {
-        throw new UnsupportedOperationException("checkoutCard ainda não implementado");
+    public OrderResponse checkoutCard(String customerEmail, Long savedCardId, String cvv) {
+        String defaultDescription = "Compra no ecommerce feita pelo cartao de credito";
+
+        Customer customer = customerService.findByEmail(customerEmail);
+        Cart cart = cartRepository.findByCustomer_Id(customer.getId()).orElseThrow(
+                () -> new CartNotFoundException()
+        );
+        if(!cartService.isClosed(cart)){
+            throw new CartWasNotClosedException(cart.getId());
+        }
+
+        Order order = new Order();
+        order.setCustomerId(customer.getId());
+        order.setStatus(OrderStatus.PAID);
+        order.setPaymentMethod(PaymentMethod.CREDIT_CARD);
+        BigDecimal subTotal = BigDecimal.ZERO;
+
+        for(CartItem item: cart.getItems()){
+            subTotal = subTotal.add(item.getUnitPrice().multiply(BigDecimal.valueOf(item.getQuantity())));
+            OrderItem orderItem = OrderItem.builder()
+                    .order(order)
+                    .productId(item.getProduct().getId())
+                    .productName(item.getProduct().getName())
+                    .quantity(item.getQuantity())
+                    .unitPrice(item.getUnitPrice())
+                    .build();
+            order.addItem(orderItem);
+        }
+
+        BigDecimal discountTotal = BigDecimal.ZERO;
+        BigDecimal totalAmount = subTotal.subtract(discountTotal);
+        order.setSubtotal(subTotal);
+        order.setDiscountTotal(discountTotal);
+        order.setTotalAmount(totalAmount);
+        order.setPaidAt(Instant.now());
+        order = orderRepository.save(order);
+
+        SavedCard savedCard = savedCardService.findByIdAndCustomer(savedCardId, customer.getId());
+        bankingFacade.chargeCard(
+                savedCard.getBankingCardId(),
+                totalAmount,
+                cvv,
+                defaultDescription,
+                orderPrefix + order.getId()
+        );
+
+        for(OrderItem item: order.getItems()){
+            productService.consumeReserved(item.getProductId(), item.getQuantity());
+        }
+
+        cart.clearAndReactivate();
+
+        UserInfo user = userFacade.findByEmail(customerEmail);
+        eventPublisher.publishEvent(new OrderPaidEvent(
+                order.getId(),
+                customer.getUserId(),
+                user.name(),
+                user.email(),
+                order.getTotalAmount(),
+                PaymentMethod.CREDIT_CARD.toString(),
+                order.getPaidAt()
+        ));
+
+        return toResponse(order);
     }
 
     @Transactional
