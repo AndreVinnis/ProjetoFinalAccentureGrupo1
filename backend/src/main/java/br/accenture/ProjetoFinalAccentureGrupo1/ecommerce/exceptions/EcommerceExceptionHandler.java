@@ -25,6 +25,24 @@ public class EcommerceExceptionHandler {
         return error(HttpStatus.NOT_FOUND, ex.getMessage());
     }
 
+    @ExceptionHandler(CategoryNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleCategoryNotFound(CategoryNotFoundException ex) {
+        return error(HttpStatus.NOT_FOUND, ex.getMessage());
+    }
+
+    @ExceptionHandler(SavedCardNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleSavedCardNotFound(SavedCardNotFoundException ex) {
+        return error(HttpStatus.NOT_FOUND, ex.getMessage());
+    }
+
+    @ExceptionHandler({
+            CategoryAlreadyExistsException.class,
+            SavedCardAlreadyExistsException.class
+    })
+    public ResponseEntity<ErrorResponse> handleConflict(RuntimeException ex) {
+        return error(HttpStatus.CONFLICT, ex.getMessage());
+    }
+
     @ExceptionHandler(ProductNotAvailableException.class)
     public ResponseEntity<ErrorResponse> handleProductNotAvailable(ProductNotAvailableException ex) {
         return error(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage());
