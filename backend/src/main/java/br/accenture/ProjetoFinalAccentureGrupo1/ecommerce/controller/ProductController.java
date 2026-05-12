@@ -2,11 +2,13 @@ package br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.controller;
 
 import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.domain.Product;
 import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.service.ProductService;
+import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.dto.ProductResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import java.math.BigDecimal;
 
 @RestController
 @RequestMapping("/ecommerce/products")

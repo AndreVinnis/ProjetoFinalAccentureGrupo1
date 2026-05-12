@@ -1,4 +1,4 @@
-package com.grupo.projeto.ecommerce.domain;
+package br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.domain;
 
 import jakarta.persistence.*;
 import lombok.*;

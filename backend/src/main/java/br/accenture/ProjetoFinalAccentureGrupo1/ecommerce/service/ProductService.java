@@ -1,8 +1,9 @@
-package com.grupo.projeto.ecommerce.service;
+package br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.service;
 
-import com.grupo.projeto.ecommerce.domain.Category;
-import com.grupo.projeto.ecommerce.domain.Product;
-import com.grupo.projeto.ecommerce.repository.ProductRepository;
+import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.domain.Category;
+import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.domain.Product;
+import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.dto.ProductResponse;
+import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.repository.ProductRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
