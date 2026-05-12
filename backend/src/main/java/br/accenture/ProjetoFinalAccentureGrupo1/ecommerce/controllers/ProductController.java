@@ -1,7 +1,7 @@
-package br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.controller;
+package br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.controllers;
 
 import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.domain.Product;
-import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.service.ProductService;
+import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.services.ProductService;
 import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.dto.ProductResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;

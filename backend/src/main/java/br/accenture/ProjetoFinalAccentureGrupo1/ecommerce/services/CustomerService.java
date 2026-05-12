@@ -47,6 +47,12 @@ public class CustomerService {
         return findByUserId(user.id());
     }
 
+    public Customer findById(Long id) {
+        return customerRepository.findById(id).orElseThrow(
+                () -> new CustomerNotFoundException(id)
+        );
+    }
+
     @Transactional(readOnly = true)
     public CustomerResponse findMyCustomer(String email) {
         return toResponse(findByEmail(email));

@@ -1,9 +1,9 @@
-package br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.controller;
+package br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.controllers;
 
 import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.dto.AddToCartRequest;
 import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.dto.CartResponse;
 import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.dto.UpdateCartItemRequest;
-import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.service.CartService;
+import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.services.CartService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -23,6 +23,18 @@ public class CartController {
     @PreAuthorize("hasRole('CUSTOMER')")
     public ResponseEntity<CartResponse> getMyCart(@AuthenticationPrincipal UserDetails userDetails) {
         return ResponseEntity.ok(cartService.getMyCart(userDetails.getUsername()));
+    }
+
+    @PatchMapping("/close/me")
+    @PreAuthorize("hasRole('CUSTOMER')")
+    public ResponseEntity<CartResponse> closeMyCart(@AuthenticationPrincipal UserDetails userDetails) {
+        return ResponseEntity.ok(cartService.closeCart(userDetails.getUsername()));
+    }
+
+    @PatchMapping("/open/me")
+    @PreAuthorize("hasRole('CUSTOMER')")
+    public ResponseEntity<CartResponse> openMyCart(@AuthenticationPrincipal UserDetails userDetails) {
+        return ResponseEntity.ok(cartService.openCart(userDetails.getUsername()));
     }
 
     @PostMapping("/me/items")

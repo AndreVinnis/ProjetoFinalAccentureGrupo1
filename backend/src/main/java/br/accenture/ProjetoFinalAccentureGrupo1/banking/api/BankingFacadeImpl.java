@@ -88,12 +88,12 @@ public class BankingFacadeImpl implements BankingFacade {
 
     @Override
     @Transactional
-    public void cancelPaymentRequest(String code) {
-        PaymentRequest request = paymentRequestRepository.findByCode(code)
-                .orElseThrow(() -> new PaymentRequestNotFoundException(code));
+    public void cancelPaymentRequest(String refence) {
+        PaymentRequest request = paymentRequestRepository.findByReference(refence)
+                .orElseThrow(() -> new PaymentRequestNotFoundException(refence));
 
         if (request.getStatus() != PaymentRequestStatus.PENDING) {
-            throw new PaymentRequestNotPayableException(code, request.getStatus().name());
+            throw new PaymentRequestNotPayableException(refence, request.getStatus().name());
         }
 
         request.setStatus(PaymentRequestStatus.CANCELLED);

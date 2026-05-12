@@ -1,4 +1,4 @@
-package br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.service;
+package br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.services;
 
 import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.domain.Category;
 import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.domain.Product;
@@ -14,7 +14,7 @@ import java.math.BigDecimal;
 
 @Service
 @RequiredArgsConstructor
-public class ProductService {
+public class  ProductService {
 
     private final ProductRepository productRepository;
     private final CategoryService categoryService; // Assumindo que este serviço já exista

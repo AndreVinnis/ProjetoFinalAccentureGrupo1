@@ -1,4 +1,4 @@
-package br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.service;
+package br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.services;
 
 import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.domain.Category;
 import org.springframework.stereotype.Service;

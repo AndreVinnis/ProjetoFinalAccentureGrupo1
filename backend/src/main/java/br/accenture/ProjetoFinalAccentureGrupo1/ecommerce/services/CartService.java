@@ -1,4 +1,4 @@
-package br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.service;
+package br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.services;
 
 import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.domain.Cart;
 import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.domain.CartItem;
@@ -8,12 +8,10 @@ import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.dto.AddToCartRequest;
 import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.dto.CartItemResponse;
 import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.dto.CartResponse;
 import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.dto.UpdateCartItemRequest;
-import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.exceptions.CartItemNotFoundException;
-import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.exceptions.InsufficientStockException;
-import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.exceptions.ProductNotAvailableException;
+import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.enums.CartStatus;
+import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.exceptions.*;
 import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.repository.CartItemRepository;
 import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.repository.CartRepository;
-import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.services.CustomerService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -35,10 +33,44 @@ public class CartService {
     public CartResponse getMyCart(String email) {
         Customer customer = customerService.findByEmail(email);
         Cart cart = cartRepository.findByCustomer_Id(customer.getId())
-                .orElse(null);
-        if (cart == null) {
-            return new CartResponse(null, List.of(), BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP));
+                .orElseThrow(
+                        () -> new CartNotFoundException()
+                );
+        return toResponse(cart);
+    }
+
+    @Transactional
+    public CartResponse closeCart(String email) {
+        Customer customer = customerService.findByEmail(email);
+        Cart cart = cartRepository.findByCustomer_Id(customer.getId()).orElseThrow(
+                () -> new CartNotFoundException()
+        );
+        if(cart.getItems().isEmpty()){
+            throw new CartEmptyException();
         }
+        if (isClosed(cart)) {
+            throw new IllegalStateException("Carrinho já está fechado");
+        }
+        for(CartItem item: cart.getItems()){
+            productService.reserveStock(item.getId(), item.getQuantity());
+        }
+        cart.markReserved();
+        return toResponse(cart);
+    }
+
+    @Transactional
+    public CartResponse openCart(String email) {
+        Customer customer = customerService.findByEmail(email);
+        Cart cart = cartRepository.findByCustomer_Id(customer.getId()).orElseThrow(
+                () -> new CartNotFoundException()
+        );
+        if (cart.getStatus() != CartStatus.RESERVED) {
+            throw new IllegalStateException("Só carrinho RESERVED pode ser reaberto");
+        }
+        for(CartItem item: cart.getItems()){
+            productService.releaseReservation(item.getId(), item.getQuantity());
+        }
+        cart.setStatus(CartStatus.ACTIVE);
         return toResponse(cart);
     }
 
@@ -120,12 +152,18 @@ public class CartService {
                     cartRepository.save(cart);
                     return toResponse(cart);
                 })
-                .orElseGet(() -> new CartResponse(null, List.of(), BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP)));
+                .orElseThrow(
+                        () -> new CartNotFoundException()
+                );
     }
 
     private Cart getOrCreateCart(Customer customer) {
         return cartRepository.findByCustomer_Id(customer.getId())
                 .orElseGet(() -> cartRepository.save(Cart.builder().customer(customer).build()));
+    }
+
+    public boolean isClosed(Cart cart) {
+        return cart.getStatus() != CartStatus.ACTIVE;
     }
 
     private void assertProductActive(Product product) {
