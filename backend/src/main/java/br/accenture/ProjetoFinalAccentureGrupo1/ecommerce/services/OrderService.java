@@ -11,11 +11,15 @@ import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.enums.CartStatus;
 import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.enums.OrderStatus;
 import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.enums.PaymentMethod;
 import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.events.OrderCancelledEvent;
+import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.events.OrderDeliveredEvent;
 import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.events.OrderPaidEvent;
+import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.events.OrderShippedEvent;
 import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.exceptions.CartNotFoundException;
 import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.exceptions.CartWasNotClosedException;
+import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.exceptions.CustomerNotFoundException;
 import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.exceptions.OrderNotFound;
 import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.repository.CartRepository;
+import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.repository.CustomerRepository;
 import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.repository.OrderDiscountRepository;
 import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.repository.OrderRepository;
 import lombok.RequiredArgsConstructor;
@@ -28,6 +32,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 
 @Service
@@ -42,6 +47,7 @@ public class OrderService {
     private final CartRepository cartRepository;
     private final ProductService productService;
     private final CustomerService customerService;
+    private final CustomerRepository customerRepository;
     private final OrderRepository orderRepository;
     private final BankingFacade bankingFacade;
     private final UserFacade userFacade;
@@ -49,6 +55,7 @@ public class OrderService {
     private final DiscountService discountService;
     private final OrderDiscountRepository orderDiscountRepository;
     private final ApplicationEventPublisher eventPublisher;
+    private final Clock clock;
 
 
     @Transactional
@@ -312,6 +319,58 @@ public class OrderService {
             throw new OrderNotFound(orderId);
         }
         return toResponse(order);
+    }
+
+    @Transactional
+    public int transitionToShipped() {
+        // Pedidos pagos há mais de 1 dia
+        Instant threshold = Instant.now(clock).minus(1, ChronoUnit.DAYS);
+        List<Order> ordersToShip = orderRepository.findByStatusAndPaidAtBefore(OrderStatus.PAID, threshold);
+
+        for (Order order : ordersToShip) {
+            order.setStatus(OrderStatus.SHIPPED);
+            order.setShippedAt(Instant.now(clock));
+            log.debug("Pedido ID {} atualizado para SHIPPED", order.getId());
+            Customer customer = customerRepository.findById(order.getCustomerId()).orElseThrow(
+                    () -> new CustomerNotFoundException(order.getCustomerId())
+            );
+            UserInfo userInfo = userFacade.findById(customer.getUserId());
+            eventPublisher.publishEvent(new OrderShippedEvent(
+                    order.getId(),
+                    order.getCustomerId(),
+                    userInfo.name(),
+                    userInfo.email(),
+                    Instant.now()
+            ));
+        }
+        orderRepository.saveAll(ordersToShip);
+        return ordersToShip.size();
+    }
+
+    @Transactional
+    public int transitionToDelivered() {
+        // Pedidos enviados há mais de 5 dias
+        Instant threshold = Instant.now(clock).minus(5, ChronoUnit.DAYS);
+        List<Order> ordersToDeliver = orderRepository.findByStatusAndShippedAtBefore(OrderStatus.SHIPPED, threshold);
+
+        for (Order order : ordersToDeliver) {
+            order.setStatus(OrderStatus.DELIVERED);
+            order.setDeliveredAt(Instant.now(clock));
+            log.debug("Pedido ID {} atualizado para DELIVERED", order.getId());
+            Customer customer = customerRepository.findById(order.getCustomerId()).orElseThrow(
+                    () -> new CustomerNotFoundException(order.getCustomerId())
+            );
+            UserInfo userInfo = userFacade.findById(customer.getUserId());
+            eventPublisher.publishEvent(new OrderDeliveredEvent(
+                    order.getId(),
+                    order.getCustomerId(),
+                    userInfo.name(),
+                    userInfo.email(),
+                    Instant.now()
+            ));
+        }
+        orderRepository.saveAll(ordersToDeliver);
+        return ordersToDeliver.size();
     }
 
     private OrderResponse toResponse(Order order) {
