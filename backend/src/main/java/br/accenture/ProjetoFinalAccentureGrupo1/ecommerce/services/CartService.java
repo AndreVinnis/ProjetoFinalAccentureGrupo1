@@ -13,21 +13,29 @@ import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.exceptions.*;
 import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.repository.CartItemRepository;
 import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.repository.CartRepository;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 
 @Service
 @RequiredArgsConstructor
 public class CartService {
 
+    private static final Logger log = LoggerFactory.getLogger(CartService.class);
+
     private final CartRepository cartRepository;
     private final CartItemRepository cartItemRepository;
     private final CustomerService customerService;
     private final ProductService productService;
+    private final Clock clock;
 
     @Transactional(readOnly = true)
     public CartResponse getMyCart(String email) {
@@ -160,6 +168,26 @@ public class CartService {
                 .orElseThrow(
                         () -> new CartNotFoundException()
                 );
+    }
+
+    @Transactional
+    public int releaseExpiredReservations() {
+        // Carrinhos reservados há mais de 3 dias
+        Instant threshold = Instant.now(clock).minus(3, ChronoUnit.DAYS);
+        List<Cart> expiredCarts = cartRepository.findByStatusAndReservedAtBefore(CartStatus.RESERVED, threshold);
+
+        for (Cart cart : expiredCarts) {
+            log.debug("Liberando reserva expirada do carrinho ID {}", cart.getId());
+
+            for (CartItem item : cart.getItems()) {
+                productService.releaseReservation(item.getProduct().getId(), item.getQuantity());
+            }
+
+            cart.setStatus(CartStatus.ACTIVE);
+            cart.setReservedAt(null);
+        }
+        cartRepository.saveAll(expiredCarts);
+        return expiredCarts.size();
     }
 
     private Cart getOrCreateCart(Customer customer) {
