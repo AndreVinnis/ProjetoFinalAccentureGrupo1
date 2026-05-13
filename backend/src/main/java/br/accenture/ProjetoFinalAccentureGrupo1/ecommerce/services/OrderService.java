@@ -175,7 +175,7 @@ public class OrderService {
                 () -> new CartNotFoundException()
         );
         cart.clearAndReactivate();
-
+        orderRepository.save(order);
         UserInfo payer = userFacade.findById(payerUserId);
         eventPublisher.publishEvent(new OrderPaidEvent(
                 order.getId(),
@@ -210,6 +210,7 @@ public class OrderService {
         );
         cart.clearAndReactivate();
 
+        orderRepository.save(order);
         Customer customer = customerService.findById(order.getCustomerId());
         UserInfo user = userFacade.findById(customer.getUserId());
         eventPublisher.publishEvent(new OrderCancelledEvent(
@@ -261,6 +262,8 @@ public class OrderService {
             }
         }
 
+        order.setStatus(OrderStatus.CANCELLED);
+        orderRepository.save(order);
         eventPublisher.publishEvent(new OrderCancelledEvent(
                 orderId,
                 customer.getUserId(),

@@ -7,5 +7,5 @@ public record ProductRequest(
         String description,
         BigDecimal price,
         int initialStock,
-        Long categoryId
+        String categoryName
 ) {}

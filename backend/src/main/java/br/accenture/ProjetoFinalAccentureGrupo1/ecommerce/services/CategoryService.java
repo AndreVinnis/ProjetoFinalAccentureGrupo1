@@ -9,7 +9,6 @@ import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.repository.CategoryRep
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
 import java.util.List;
 
 @Service
@@ -18,6 +17,36 @@ public class CategoryService {
 
     private final CategoryRepository categoryRepository;
 
+
+    @Transactional(readOnly = true)
+    public CategoryResponse findByName(String name) {
+        Category category = categoryRepository.findByNameIgnoreCase(name).orElseThrow(
+                () -> new CategoryNotFoundException(0L)
+        );
+        return toCategoryResponse(category);
+    }
+
+    @Transactional(readOnly = true)
+    public Category findEntityByName(String name) {
+        return categoryRepository.findByNameIgnoreCase(name).orElseThrow(
+                () -> new CategoryNotFoundException(0L)
+        );
+    }
+
+
+    @Transactional
+    public CategoryResponse createCategory(CategoryRequest request){
+        Category category = Category.builder()
+                .name(request.name())
+                .description(request.description())
+                .build();
+        categoryRepository.save(category);
+        return toCategoryResponse(category);
+    }
+
+    private CategoryResponse toCategoryResponse(Category category){
+        return new CategoryResponse(category.getId(), category.getName(), category.getDescription());
+    }
     @Transactional(readOnly = true)
     public List<CategoryResponse> list() {
         return categoryRepository.findAll().stream()

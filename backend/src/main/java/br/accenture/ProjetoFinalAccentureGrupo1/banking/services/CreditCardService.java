@@ -31,7 +31,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class CreditCardService {
 
-    private static final BigDecimal INITIAL_CREDIT_LIMIT = new BigDecimal("1000.00");
+    private static final BigDecimal INITIAL_CREDIT_LIMIT = new BigDecimal("5000.00");
 
     private final UserFacade userFacade;
     private final CreditCardRepository creditCardRepository;

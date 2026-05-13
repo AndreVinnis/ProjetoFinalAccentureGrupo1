@@ -23,7 +23,7 @@ public class AdminProductController {
                 request.description(),
                 request.price(),
                 request.initialStock(),
-                request.categoryId()
+                request.categoryName()
         );
         return ResponseEntity.ok(product);
     }
@@ -35,7 +35,7 @@ public class AdminProductController {
                 request.name(),
                 request.description(),
                 request.price(),
-                request.categoryId()
+                request.categoryName()
         );
         return ResponseEntity.ok(product);
     }

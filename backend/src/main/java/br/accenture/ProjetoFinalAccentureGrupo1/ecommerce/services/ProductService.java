@@ -17,7 +17,7 @@ import java.math.BigDecimal;
 public class  ProductService {
 
     private final ProductRepository productRepository;
-    private final CategoryService categoryService; // Assumindo que este serviço já exista
+    private final CategoryService categoryService;
 
 
     // MÉTODOS DE LEITURA (PÚBLICOS)
@@ -29,13 +29,13 @@ public class  ProductService {
     }
 
     @Transactional(readOnly = true)
-    public Page<ProductResponse> listActiveProducts(Long categoryId, BigDecimal maxPrice, Pageable pageable) {
+    public Page<ProductResponse> listActiveProducts(String categoryName, BigDecimal maxPrice, Pageable pageable) {
         Page<Product> products;
 
-        if (categoryId != null && maxPrice != null) {
-            products = productRepository.findByActiveTrueAndCategoryIdAndPriceLessThanEqual(categoryId, maxPrice, pageable);
-        } else if (categoryId != null) {
-            products = productRepository.findByActiveTrueAndCategoryId(categoryId, pageable);
+        if (categoryName != null && maxPrice != null) {
+            products = productRepository.findByActiveTrueAndCategoryNameAndPriceLessThanEqual(categoryName, maxPrice, pageable);
+        } else if (categoryName != null) {
+            products = productRepository.findByActiveTrueAndCategoryName(categoryName, pageable);
         } else if (maxPrice != null) {
             products = productRepository.findByActiveTrueAndPriceLessThanEqual(maxPrice, pageable);
         } else {
@@ -61,8 +61,8 @@ public class  ProductService {
     // MÉTODOS ADMINISTRATIVOS
 
     @Transactional
-    public Product createProduct(String name, String description, BigDecimal price, int initialStock, Long categoryId) {
-        Category category = categoryService.findById(categoryId);
+    public Product createProduct(String name, String description, BigDecimal price, int initialStock, String categoryName) {
+        Category category = categoryService.findEntityByName(categoryName);
 
         Product product = Product.builder()
                 .name(name)
@@ -78,9 +78,9 @@ public class  ProductService {
     }
 
     @Transactional
-    public Product updateProduct(Long id, String name, String description, BigDecimal price, Long categoryId) {
+    public Product updateProduct(Long id, String name, String description, BigDecimal price, String categoryName) {
         Product product = findById(id);
-        Category category = categoryService.findById(categoryId);
+        Category category = categoryService.findEntityByName(categoryName);
 
         product.setName(name);
         product.setDescription(description);

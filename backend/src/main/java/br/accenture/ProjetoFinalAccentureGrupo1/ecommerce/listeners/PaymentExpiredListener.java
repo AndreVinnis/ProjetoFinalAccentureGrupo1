@@ -1,6 +1,6 @@
 package br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.listeners;
 
-import br.accenture.ProjetoFinalAccentureGrupo1.banking.events.PaymentReceivedEvent;
+import br.accenture.ProjetoFinalAccentureGrupo1.banking.events.PaymentExpiredEvent;
 import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.services.OrderService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -16,7 +16,7 @@ public class PaymentExpiredListener {
     private final OrderService orderService;
 
     @EventListener
-    public void onPaymentExpire(PaymentReceivedEvent event){
+    public void onPaymentExpire(PaymentExpiredEvent event){
         orderService.cancelByPixExpiration(event.reference());
     }
 }
