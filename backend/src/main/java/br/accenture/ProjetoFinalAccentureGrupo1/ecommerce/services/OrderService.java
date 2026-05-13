@@ -150,7 +150,6 @@ public class OrderService {
                 PaymentMethod.CREDIT_CARD.toString(),
                 order.getPaidAt()
         ));
-
         return toResponse(order);
     }
 

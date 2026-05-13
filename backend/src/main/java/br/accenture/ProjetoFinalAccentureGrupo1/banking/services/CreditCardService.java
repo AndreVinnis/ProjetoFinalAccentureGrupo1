@@ -106,7 +106,6 @@ public class CreditCardService {
         cardPurchaseRepository.save(cardPurchase);
         creditCardRepository.save(card);
         accountService.creditMerchant(amount, description, refence);
-        publishPaymentReceived(card, amount, refence);
     }
 
     @Transactional(readOnly = true)

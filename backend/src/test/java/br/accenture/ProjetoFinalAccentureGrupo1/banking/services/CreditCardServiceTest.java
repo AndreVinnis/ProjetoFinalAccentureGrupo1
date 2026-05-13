@@ -135,15 +135,6 @@ class CreditCardServiceTest {
         verify(accountService).creditMerchant(
                 new BigDecimal("200.00"), "Compra teste", "ORDER-42"
         );
-
-        // evento publicado
-        ArgumentCaptor<PaymentReceivedEvent> eventCaptor =
-                ArgumentCaptor.forClass(PaymentReceivedEvent.class);
-        verify(eventPublisher).publishEvent(eventCaptor.capture());
-        PaymentReceivedEvent event = eventCaptor.getValue();
-        assertEquals("ORDER-42", event.reference());
-        assertEquals(10L, event.payerUserId());
-        assertEquals(new BigDecimal("200.00"), event.amount());
     }
 
     @Test
