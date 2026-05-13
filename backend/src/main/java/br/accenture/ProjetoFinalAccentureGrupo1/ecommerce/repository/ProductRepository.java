@@ -13,10 +13,10 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
     
     Page<Product> findByActiveTrue(Pageable pageable);
     
-    Page<Product> findByActiveTrueAndCategoryId(Long categoryId, Pageable pageable);
+    Page<Product> findByActiveTrueAndCategoryName(String categoryName, Pageable pageable);
 
     // Novos métodos com filtro de preço
     Page<Product> findByActiveTrueAndPriceLessThanEqual(BigDecimal maxPrice, Pageable pageable);
     
-    Page<Product> findByActiveTrueAndCategoryIdAndPriceLessThanEqual(Long categoryId, BigDecimal maxPrice, Pageable pageable);
+    Page<Product> findByActiveTrueAndCategoryNameAndPriceLessThanEqual(String categoryName, BigDecimal maxPrice, Pageable pageable);
 }

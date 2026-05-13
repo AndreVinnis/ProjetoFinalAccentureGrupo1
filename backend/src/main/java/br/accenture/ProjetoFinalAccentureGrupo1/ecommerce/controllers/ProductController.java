@@ -7,6 +7,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import java.math.BigDecimal;
 
@@ -19,15 +20,16 @@ public class ProductController {
 
     // Lista os produtos ativos (vitrine). Pode filtrar por categoria se passar o ID na URL
     @GetMapping
+    @PreAuthorize("hasRole('CUSTOMER')")
     public ResponseEntity<Page<ProductResponse>> listProducts(
-            @RequestParam(required = false) Long categoryId,
+            @RequestParam(required = false) String categoryName,
             @RequestParam(required = false) BigDecimal maxPrice,
             Pageable pageable) {
-        return ResponseEntity.ok(productService.listActiveProducts(categoryId, maxPrice, pageable));
+        return ResponseEntity.ok(productService.listActiveProducts(categoryName, maxPrice, pageable));
     }
 
-    // Traz os detalhes de um único produto
     @GetMapping("/{id}")
+    @PreAuthorize("hasRole('CUSTOMER')")
     public ResponseEntity<Product> getProductDetails(@PathVariable Long id) {
         return ResponseEntity.ok(productService.findById(id));
     }
