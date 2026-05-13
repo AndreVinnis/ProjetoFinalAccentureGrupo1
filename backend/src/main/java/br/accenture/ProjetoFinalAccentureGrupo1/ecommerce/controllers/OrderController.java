@@ -43,7 +43,7 @@ public class OrderController {
 
     @PostMapping("/checkout/card")
     @PreAuthorize("hasRole('CUSTOMER')")
-    public ResponseEntity<Object> checkoutCard(
+    public ResponseEntity<OrderResponse> checkoutCard(
             @AuthenticationPrincipal UserDetails userDetails,
             @RequestBody @Valid CheckoutCardRequest request
     ) {
