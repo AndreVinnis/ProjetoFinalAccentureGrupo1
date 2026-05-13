@@ -75,7 +75,7 @@ public class CustomerService {
         return customerRepository.save(customer);
     }
 
-    public void recalculateTier(Customer customer) {
+    private void recalculateTier(Customer customer) {
         int purchases = customer.getQuantityPurchases();
         if (purchases >= GOLD_MIN_PURCHASES) {
             customer.setTier(CustomerTier.GOLD);
