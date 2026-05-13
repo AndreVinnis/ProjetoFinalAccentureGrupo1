@@ -96,8 +96,8 @@ class CreditCardServiceTest {
         assertEquals("ENC(num)", saved.getNumberHash());
         assertEquals("ENC(123)", saved.getCvvHash());
         assertEquals(CreditCardStatus.ACTIVE, saved.getStatus());
-        assertEquals(new BigDecimal("1000.00"), saved.getCreditLimit());
-        assertEquals(new BigDecimal("1000.00"), saved.getAvailableLimit());
+        assertEquals(new BigDecimal("5000.00"), saved.getCreditLimit());
+        assertEquals(new BigDecimal("5000.00"), saved.getAvailableLimit());
     }
 
     @Test
