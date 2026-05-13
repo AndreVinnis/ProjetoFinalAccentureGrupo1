@@ -4,6 +4,7 @@ import br.accenture.ProjetoFinalAccentureGrupo1.auth.api.UserFacade;
 import br.accenture.ProjetoFinalAccentureGrupo1.auth.api.UserInfo;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.api.BankingFacade;
 import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.domain.*;
+import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.dto.DiscountApplication;
 import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.dto.OrderItemResponse;
 import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.dto.OrderResponse;
 import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.enums.CartStatus;
@@ -15,6 +16,7 @@ import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.exceptions.CartNotFoun
 import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.exceptions.CartWasNotClosedException;
 import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.exceptions.OrderNotFound;
 import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.repository.CartRepository;
+import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.repository.OrderDiscountRepository;
 import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.repository.OrderRepository;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
@@ -44,8 +46,9 @@ public class OrderService {
     private final BankingFacade bankingFacade;
     private final UserFacade userFacade;
     private final SavedCardService savedCardService;
+    private final DiscountService discountService;
+    private final OrderDiscountRepository orderDiscountRepository;
     private final ApplicationEventPublisher eventPublisher;
-    private final Clock clock;
 
 
     @Transactional
@@ -64,8 +67,8 @@ public class OrderService {
         order.setCustomerId(customer.getId());
         order.setStatus(OrderStatus.PENDING);
         order.setPaymentMethod(PaymentMethod.PIX);
-        BigDecimal subTotal = BigDecimal.ZERO;
 
+        BigDecimal subTotal = BigDecimal.ZERO;
         for(CartItem item: cart.getItems()){
             subTotal = subTotal.add(item.getUnitPrice().multiply(BigDecimal.valueOf(item.getQuantity())));
             OrderItem orderItem = OrderItem.builder()
@@ -77,13 +80,28 @@ public class OrderService {
                     .build();
             order.addItem(orderItem);
         }
-        // regra de desconto pix
+
         BigDecimal discountTotal = BigDecimal.ZERO;
+        List<DiscountApplication> applications = discountService.applyAll(customer, cart.getItems(), PaymentMethod.PIX);
+        for(DiscountApplication discountApplication: applications){
+            discountTotal = discountTotal.add(discountApplication.discountAmount());
+        }
+
         BigDecimal totalAmount = subTotal.subtract(discountTotal);
         order.setSubtotal(subTotal);
         order.setDiscountTotal(discountTotal);
         order.setTotalAmount(totalAmount);
         order = orderRepository.save(order);
+
+        for(DiscountApplication discountApplication: applications){
+            OrderDiscount orderDiscount = OrderDiscount.builder()
+                    .order(order)
+                    .ruleName(discountApplication.ruleName())
+                    .description(discountApplication.description())
+                    .amount(discountApplication.discountAmount())
+                    .build();
+            orderDiscountRepository.save(orderDiscount);
+        }
         return bankingFacade.createPaymentRequest(totalAmount, defaultDescription, orderPrefix + order.getId());
     }
 
@@ -150,6 +168,7 @@ public class OrderService {
                 PaymentMethod.CREDIT_CARD.toString(),
                 order.getPaidAt()
         ));
+        customerService.incrementCompletedOrders(customer.getId());
         return toResponse(order);
     }
 
@@ -185,6 +204,7 @@ public class OrderService {
                 PaymentMethod.PIX.toString(),
                 order.getPaidAt()
         ));
+        customerService.incrementCompletedOrders(order.getCustomerId());
     }
 
     @Transactional

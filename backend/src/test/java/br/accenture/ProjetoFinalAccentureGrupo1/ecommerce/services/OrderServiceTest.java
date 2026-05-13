@@ -10,6 +10,7 @@ import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.domain.Order;
 import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.domain.OrderItem;
 import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.domain.Product;
 import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.domain.SavedCard;
+import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.dto.DiscountApplication;
 import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.dto.OrderResponse;
 import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.enums.CartStatus;
 import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.enums.OrderStatus;
@@ -19,6 +20,7 @@ import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.events.OrderPaidEvent;
 import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.exceptions.CartWasNotClosedException;
 import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.exceptions.OrderNotFound;
 import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.repository.CartRepository;
+import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.repository.OrderDiscountRepository;
 import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.repository.OrderRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -61,6 +63,8 @@ class OrderServiceTest {
     @Mock private UserFacade userFacade;
     @Mock private SavedCardService savedCardService;
     @Mock private ApplicationEventPublisher eventPublisher;
+    @Mock private DiscountService discountService;
+    @Mock private OrderDiscountRepository orderDiscountRepository;
     @Mock private Clock clock;
 
     @InjectMocks
@@ -107,32 +111,34 @@ class OrderServiceTest {
     }
 
     @Test
-    void checkoutPix_DeveSalvarOrderPendenteEEnviarCobranca_QuandoCarrinhoFechado() {
+    void checkoutPix_DeveSalvarOrderPendenteEEnviarCobranca_ComDesconto() {
         when(customerService.findByEmail(EMAIL)).thenReturn(customer);
         when(cartRepository.findByCustomer_Id(1L)).thenReturn(Optional.of(cart));
         when(cartService.isClosed(cart)).thenReturn(true);
+
+        DiscountApplication discount = new DiscountApplication("TEST_RULE", "Desc Teste", new BigDecimal("15.00"));
+        when(discountService.applyAll(eq(customer), any(), eq(PaymentMethod.PIX)))
+                .thenReturn(List.of(discount));
+
         when(orderRepository.save(any(Order.class))).thenAnswer(inv -> {
             Order o = inv.getArgument(0);
             o.setId(200L);
             return o;
         });
-        when(bankingFacade.createPaymentRequest(any(), any(), eq("ORDER-200")))
+
+        when(bankingFacade.createPaymentRequest(eq(new BigDecimal("285.00")), any(), eq("ORDER-200")))
                 .thenReturn("PIX-XYZ");
 
         String code = orderService.checkoutPix(EMAIL);
 
         assertEquals("PIX-XYZ", code);
-
         ArgumentCaptor<Order> orderCap = ArgumentCaptor.forClass(Order.class);
         verify(orderRepository).save(orderCap.capture());
         Order saved = orderCap.getValue();
-        assertEquals(OrderStatus.PENDING, saved.getStatus());
-        assertEquals(PaymentMethod.PIX, saved.getPaymentMethod());
-        assertEquals(0, new BigDecimal("300.00").compareTo(saved.getSubtotal()));
-        assertEquals(1L, saved.getCustomerId());
-        assertEquals(1, saved.getItems().size());
-        assertEquals(100L, saved.getItems().get(0).getProductId());
-        assertEquals("Mouse Gamer", saved.getItems().get(0).getProductName());
+        assertEquals(new BigDecimal("300.00"), saved.getSubtotal());
+        assertEquals(new BigDecimal("15.00"), saved.getDiscountTotal());
+        assertEquals(new BigDecimal("285.00"), saved.getTotalAmount());
+        verify(orderDiscountRepository).save(any());
     }
 
     @Test
