@@ -97,6 +97,7 @@
 }
 
 .credit-card-visual {
+  position: relative;
   min-height: 245px;
   display: block;
   padding: 0;
@@ -109,7 +110,8 @@
     #170d27;
   transform: perspective(900px) rotateY(-4deg);
   transform-style: preserve-3d;
-  transition: transform 0.5s ease, box-shadow 0.22s ease;
+  perspective: 900px;
+  transition: transform 0.22s ease, box-shadow 0.22s ease;
 }
 
 .credit-card-visual:hover {
@@ -118,11 +120,11 @@
 }
 
 .credit-card-visual.revealed {
-  transform: perspective(900px) rotateY(180deg);
+  transform: perspective(900px) rotateY(-4deg);
 }
 
 .credit-card-visual.revealed:hover {
-  transform: perspective(900px) rotateY(180deg) translateY(-3px);
+  transform: perspective(900px) rotateY(0deg) translateY(-3px);
 }
 
 .credit-card-visual::before {
@@ -138,11 +140,19 @@
   padding: 28px;
   border-radius: 8px;
   overflow: hidden;
+  pointer-events: none;
+  -webkit-backface-visibility: hidden;
   backface-visibility: hidden;
+  transform-style: preserve-3d;
+  transition: transform 0.56s cubic-bezier(0.2, 0.72, 0.24, 1);
   background:
     radial-gradient(circle at 88% 14%, rgba(255, 255, 255, 0.13), transparent 18%),
     linear-gradient(145deg, rgba(22, 11, 35, 0.96), rgba(66, 26, 125, 0.94)),
     #170d27;
+}
+
+.card-front {
+  transform: rotateY(0deg);
 }
 
 .card-face::before {
@@ -162,6 +172,14 @@
     radial-gradient(circle at 20% 12%, rgba(139, 92, 246, 0.26), transparent 24%),
     linear-gradient(145deg, rgba(14, 8, 24, 0.98), rgba(44, 19, 78, 0.96)),
     #120a1e;
+}
+
+.credit-card-visual.revealed .card-front {
+  transform: rotateY(180deg);
+}
+
+.credit-card-visual.revealed .card-back {
+  transform: rotateY(360deg);
 }
 
 .credit-card-visual strong,
