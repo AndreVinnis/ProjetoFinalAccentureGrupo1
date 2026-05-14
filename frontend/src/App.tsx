@@ -3,6 +3,7 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import './App.css'
+import { placeholderImageForCategory } from './categoryPlaceholder'
 
 const API_BASE = import.meta.env.VITE_API_URL || '/api'
 
@@ -29,7 +30,7 @@ function App() {
   })
   const [mode, setMode] = useState('login')
   const [activeView, setActiveView] = useState('customerHome')
-  const [, setToast] = useState('')
+  const [toastMessage, setToast] = useState('')
   const [bootLoading, setBootLoading] = useState(true)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
 
@@ -55,6 +56,12 @@ function App() {
     const timer = setTimeout(() => setBootLoading(false), 1500)
     return () => clearTimeout(timer)
   }, [])
+
+  useEffect(() => {
+    if (!toastMessage) return
+    const t = setTimeout(() => setToast(''), 4200)
+    return () => clearTimeout(t)
+  }, [toastMessage])
 
   function applySession(nextSession) {
     setSession(nextSession)
@@ -106,11 +113,17 @@ function App() {
           </div>
         </header>
 
+        {toastMessage ? (
+          <div className="toast-banner" role="status">
+            {toastMessage}
+          </div>
+        ) : null}
+
         {!session ? (
           <AuthPanel api={api} mode={mode} setMode={setMode} setSession={applySession} setToast={setToast} />
         ) : (
           <>
-            {activeView === 'customerHome' && <CustomerHome setActiveView={setActiveView} />}
+            {activeView === 'customerHome' && <CustomerHome api={api} setActiveView={setActiveView} setToast={setToast} />}
             {activeView === 'adminHome' && <AdminHome roles={roles} setActiveView={setActiveView} />}
             {activeView === 'customerBank' && <CustomerBank api={api} />}
             {activeView === 'customerEcommerce' && <CustomerEcommerce api={api} />}
@@ -174,7 +187,7 @@ function RoleNavigation({ activeView, roles, setActiveView }) {
         roles.includes('BANKING_ADMIN') && { id: 'adminBank', label: 'Gestao banco' },
       ].filter(Boolean)
     : [
-        { id: 'customerHome', label: 'Minha ACC' },
+        { id: 'customerHome', label: 'Feed' },
         { id: 'customerEcommerce', label: 'Loja' },
         { id: 'customerBank', label: 'Banco' },
       ]
@@ -659,8 +672,16 @@ function CustomerEcommerce({ api }) {
         </form>
         <div className="product-grid">
           {catalog.products.map((product) => (
-            <article className="product-card" key={product.id}>
-              <small>{product.categoryName}</small>
+            <article className="product-card product-card--visual" key={product.id}>
+              <div className="product-card-cover">
+                <img
+                  src={placeholderImageForCategory(product.categoryName)}
+                  alt=""
+                  loading="lazy"
+                  decoding="async"
+                />
+                <span className="product-card-badge">{product.categoryName}</span>
+              </div>
               <h3>{product.name}</h3>
               <p>{product.description}</p>
               <strong>{money(product.price)}</strong>
@@ -898,32 +919,156 @@ function AdminBank({ api }) {
   )
 }
 
-function CustomerHome({ setActiveView }) {
+function CustomerHome({ api, setActiveView, setToast }) {
+  const [feedLoading, setFeedLoading] = useState(true)
+  const [products, setProducts] = useState([])
+  const [categories, setCategories] = useState([])
+  const [cart, setCart] = useState(null)
+  const [categoryFilter, setCategoryFilter] = useState('')
+
+  const refreshFeed = useCallback(async () => {
+    setFeedLoading(true)
+    const query = new URLSearchParams({ size: '24', sort: 'id,desc' })
+    if (categoryFilter) query.set('categoryName', categoryFilter)
+    const [productsRes, categoriesRes, cartRes] = await Promise.allSettled([
+      api.get(`/ecommerce/products?${query.toString()}`),
+      api.get('/ecommerce/categories'),
+      api.get('/ecommerce/cart/me'),
+    ])
+    setProducts(settled(productsRes)?.content || [])
+    setCategories(settled(categoriesRes, []))
+    setCart(settled(cartRes))
+    setFeedLoading(false)
+  }, [api, categoryFilter])
+
+  useEffect(() => {
+    refreshFeed()
+  }, [refreshFeed])
+
+  async function addFromFeed(productId) {
+    try {
+      await api.post('/ecommerce/cart/me/items', { productId, quantity: 1 })
+      setToast('Adicionado ao carrinho.')
+      refreshFeed()
+    } catch {
+      /* createApi ja notifica */
+    }
+  }
+
+  const cartCount = cart?.items?.reduce((acc, item) => acc + (item.quantity || 0), 0) || 0
+
   return (
-    <section className="profile-home customer-home">
-      <div className="hero-panel">
+    <section className="profile-home customer-home customer-feed">
+      <div className="hero-panel feed-hero">
         <div>
-          <p className="eyebrow">Cliente ACC Bank</p>
-          <h2>Seu banco e sua loja no mesmo lugar.</h2>
-          <p>Compre produtos, acompanhe pedidos, pague por Pix ou cartao ACC e gerencie saldo, limite, faturas e transacoes sem trocar de sistema.</p>
+          <p className="eyebrow">Feed da loja</p>
+          <h2>Descubra ofertas com imagens por categoria.</h2>
+          <p>
+            Como o catalogo nao envia fotos do servidor, mostramos uma imagem generica por tipo de categoria (livros,
+            comida, eletronicos e outras). Sem alterar o backend.
+          </p>
           <div className="button-row">
-            <button onClick={() => setActiveView('customerEcommerce')}>Ir para loja</button>
-            <button onClick={() => setActiveView('customerBank')}>Abrir banco</button>
+            <button type="button" onClick={() => setActiveView('customerEcommerce')}>
+              Abrir loja completa
+            </button>
+            <button type="button" className="ghost-button light-ghost" onClick={() => setActiveView('customerBank')}>
+              Ir ao banco
+            </button>
           </div>
         </div>
+        <aside className="mini-cart" aria-label="Resumo do carrinho">
+          <div className="mini-cart-header">
+            <strong>Seu carrinho</strong>
+            <span>{cartCount} itens</span>
+          </div>
+          {cart?.items?.length ? (
+            <ul className="mini-cart-lines">
+              {cart.items.slice(0, 4).map((item) => (
+                <li key={item.productId}>
+                  <span>{item.productName}</span>
+                  <small>
+                    {item.quantity}x {money(item.unitPrice)}
+                  </small>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="mini-cart-empty">Nada por aqui ainda. Adicione pelo feed.</p>
+          )}
+          <div className="mini-cart-footer">
+            <span>Subtotal</span>
+            <strong>{money(cart?.subtotal)}</strong>
+          </div>
+          <button type="button" className="primary-button block" onClick={() => setActiveView('customerEcommerce')}>
+            Ver carrinho e checkout
+          </button>
+        </aside>
       </div>
-      <div className="journey-grid">
+
+      <div className="feed-toolbar">
+        <p className="eyebrow">Categorias</p>
+        <div className="feed-chips">
+          <button type="button" className={categoryFilter === '' ? 'active' : ''} onClick={() => setCategoryFilter('')}>
+            Todas
+          </button>
+          {categories.map((c) => (
+            <button
+              type="button"
+              key={c.id}
+              className={categoryFilter === c.name ? 'active' : ''}
+              onClick={() => setCategoryFilter(c.name)}
+            >
+              {c.name}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {feedLoading ? (
+        <p className="empty-state">Carregando vitrine...</p>
+      ) : (
+        <div className="feed-grid">
+          {products.map((product) => (
+            <article className="feed-card" key={product.id}>
+              <div className="feed-card-cover">
+                <img
+                  src={placeholderImageForCategory(product.categoryName)}
+                  alt=""
+                  loading="lazy"
+                  decoding="async"
+                />
+                <span className="feed-card-chip">{product.categoryName}</span>
+              </div>
+              <div className="feed-card-body">
+                <h3>{product.name}</h3>
+                <p>{product.description}</p>
+                <div className="feed-card-meta">
+                  <strong>{money(product.price)}</strong>
+                  <small>Estoque {product.availableStock}</small>
+                </div>
+                <button type="button" onClick={() => addFromFeed(product.id)}>
+                  Adicionar ao carrinho
+                </button>
+              </div>
+            </article>
+          ))}
+        </div>
+      )}
+
+      {!feedLoading && !products.length ? <p className="empty-state">Nenhum produto neste filtro.</p> : null}
+
+      <div className="journey-grid feed-journey">
         <article>
           <strong>1. Comprar</strong>
-          <span>Escolha produtos da vitrine e monte seu carrinho.</span>
+          <span>Monte o carrinho pelo feed ou pela loja.</span>
         </article>
         <article>
           <strong>2. Pagar</strong>
-          <span>Use Pix gerado pela loja ou um cartao salvo.</span>
+          <span>Pix ou cartao salvo na area da loja.</span>
         </article>
         <article>
           <strong>3. Acompanhar</strong>
-          <span>Veja pedidos, faturas, compras e movimentacoes.</span>
+          <span>Pedidos e banco na mesma conta.</span>
         </article>
       </div>
     </section>
@@ -1058,7 +1203,7 @@ function settled(result, fallback = null) {
 
 function viewTitle(view) {
   const titles = {
-    customerHome: 'Minha ACC',
+    customerHome: 'Feed principal',
     customerBank: 'Banco',
     customerEcommerce: 'Loja',
     adminHome: 'Painel admin',
