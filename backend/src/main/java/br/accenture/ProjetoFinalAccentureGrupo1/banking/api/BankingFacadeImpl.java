@@ -63,6 +63,11 @@ public class BankingFacadeImpl implements BankingFacade {
     }
 
     @Override
+    public void applyCashback(Long toUserId, BigDecimal amount, String reference, String description) {
+        accountService.cashback(toUserId, amount, reference, description);
+    }
+
+    @Override
     @Transactional
     public String createPaymentRequest(BigDecimal amount, String description, String reference) {
         Account merchant = accountRepository.findFirstByAccountType(AccountType.MERCHANT)

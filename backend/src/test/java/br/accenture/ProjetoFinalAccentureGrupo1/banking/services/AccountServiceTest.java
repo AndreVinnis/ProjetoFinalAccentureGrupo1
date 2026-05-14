@@ -3,8 +3,10 @@ package br.accenture.ProjetoFinalAccentureGrupo1.banking.services;
 import br.accenture.ProjetoFinalAccentureGrupo1.auth.domain.User;
 import br.accenture.ProjetoFinalAccentureGrupo1.auth.repository.UserRepository;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.domain.Account;
+import br.accenture.ProjetoFinalAccentureGrupo1.banking.domain.Transaction;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.enums.AccountStatus;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.enums.AccountType;
+import br.accenture.ProjetoFinalAccentureGrupo1.banking.enums.TransactionType;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.exceptions.AccountBlockedException;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.exceptions.AccountNotFoundException;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.exceptions.AccountRestrictedException;
@@ -15,6 +17,7 @@ import br.accenture.ProjetoFinalAccentureGrupo1.banking.utils.AccountNumberGener
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -26,6 +29,7 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -222,5 +226,33 @@ class AccountServiceTest {
         accountService.refund(10L, new BigDecimal("50.00"), "ORDER-42", "Estorno");
 
         assertEquals(new BigDecimal("150.00"), active.getBalance());
+    }
+
+    @Test
+    void cashback_DeveDebitarMerchantECreditarCustomer_ComTransacaoCashback() {
+        Account merchant = Account.builder()
+                .id(1L)
+                .accountNumber("00000-0")
+                .balance(new BigDecimal("10000.00"))
+                .accountType(AccountType.MERCHANT)
+                .status(AccountStatus.ACTIVE)
+                .build();
+
+        when(accountRepository.findFirstByAccountType(AccountType.MERCHANT))
+                .thenReturn(Optional.of(merchant));
+        when(accountRepository.findByUserId(10L)).thenReturn(Optional.of(active));
+        when(accountRepository.save(any(Account.class)))
+                .thenAnswer(inv -> inv.getArgument(0));
+
+        accountService.cashback(10L, new BigDecimal("15.00"), "ORDER-42", "Cashback");
+
+        assertEquals(new BigDecimal("9985.00"), merchant.getBalance());
+        assertEquals(new BigDecimal("115.00"), active.getBalance());
+
+        ArgumentCaptor<Transaction> transactionCaptor = ArgumentCaptor.forClass(Transaction.class);
+        verify(transactionRepository, times(2)).save(transactionCaptor.capture());
+        transactionCaptor.getAllValues().forEach(transaction ->
+                assertEquals(TransactionType.CASHBACK, transaction.getType())
+        );
     }
 }
