@@ -7,7 +7,9 @@ import { RoleNavigation } from './components/layout/RoleNavigation'
 import { AuthPanel } from './features/auth/AuthPanel'
 import { AdminBank } from './features/banking/AdminBank'
 import { CustomerBank } from './features/banking/CustomerBank'
-import { AdminEcommerce, CustomerEcommerce } from './features/ecommerce/EcommerceViews'
+import { Cart } from './features/ecommerce/pages/Cart'
+import { Storefront } from './features/ecommerce/pages/Storefront'
+import { Profile } from './features/ecommerce/pages/Profile'
 import { AdminHome, CustomerHome } from './features/home/HomeViews'
 import { createApi } from './services/api'
 import { defaultViewForRoles, isAdmin, viewTitle } from './utils/auth'
@@ -26,6 +28,7 @@ function App() {
   const api = useMemo(() => createApi(session?.token, setToast), [session?.token])
   const roles = useMemo(() => session?.roles || [], [session?.roles])
   const admin = isAdmin(roles)
+  const customer = roles.includes('CUSTOMER')
 
   function handleAuthMouseMove(event) {
     if (session) return
@@ -100,6 +103,13 @@ function App() {
             <p className="eyebrow">Plataforma integrada</p>
             <h1>{viewTitle(activeView)}</h1>
           </div>
+          {session && customer ? (
+            <div className="topbar-actions">
+              <button className={activeView === 'storefront' ? 'active' : ''} onClick={() => setActiveView('storefront')}>Vitrine</button>
+              <button className={activeView === 'cart' ? 'active' : ''} onClick={() => setActiveView('cart')}>Carrinho</button>
+              <button className={activeView === 'profile' ? 'active' : ''} onClick={() => setActiveView('profile')}>Minhas informações</button>
+            </div>
+          ) : null}
         </header>
 
         {toastMessage ? <div className="toast-banner" role="status">{toastMessage}</div> : null}
@@ -111,7 +121,9 @@ function App() {
             {activeView === 'customerHome' && <CustomerHome api={api} setActiveView={setActiveView} setToast={setToast} />}
             {activeView === 'adminHome' && <AdminHome roles={roles} setActiveView={setActiveView} />}
             {activeView === 'customerBank' && <CustomerBank api={api} />}
-            {activeView === 'customerEcommerce' && <CustomerEcommerce api={api} />}
+            {activeView === 'storefront' && <Storefront api={api} />}
+            {activeView === 'cart' && <Cart api={api} />}
+            {activeView === 'profile' && <Profile api={api} />}
             {activeView === 'adminEcommerce' && <AdminEcommerce api={api} />}
             {activeView === 'adminBank' && <AdminBank api={api} />}
           </>

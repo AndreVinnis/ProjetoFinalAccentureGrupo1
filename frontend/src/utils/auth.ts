@@ -23,6 +23,8 @@ export function viewTitle(view) {
     customerHome: 'Feed principal',
     customerBank: 'Banco',
     customerEcommerce: 'Loja',
+    customerCart: 'Carrinho',
+    customerInfo: 'Minhas informações',
     adminHome: 'Painel admin',
     adminEcommerce: 'Gestao ecommerce',
     adminBank: 'Gestao banco',

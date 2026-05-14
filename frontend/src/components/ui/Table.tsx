@@ -1,31 +1,78 @@
-﻿/* eslint-disable @typescript-eslint/ban-ts-comment */
-// @ts-nocheck
-import { formatCell } from '../../utils/format'
+﻿import { formatCell } from '../../utils/format'
 import { Panel } from './Panel'
+import type { ReactNode } from 'react'
 
-export function TablePanel({ title, rows = [], columns = [], action }) {
+interface TableProps<T extends object> {
+  rows?: T[]
+  columns?: (keyof T)[]
+  action?: (row: T) => ReactNode
+}
+
+interface TablePanelProps<T extends object>
+  extends TableProps<T> {
+  title: string
+}
+
+export function TablePanel<T extends object>({
+  title,
+  rows = [],
+  columns = [],
+  action
+}: TablePanelProps<T>) {
   return (
     <Panel title={title}>
-      <Table rows={rows} columns={columns} action={action} />
+      <Table
+        rows={rows}
+        columns={columns}
+        action={action}
+      />
     </Panel>
   )
 }
 
-export function Table({ rows = [], columns = [], action }) {
-  if (!rows?.length) return <p className="empty-state">Nenhum registro encontrado.</p>
+export function Table<T extends object>({
+  rows = [],
+  columns = [],
+  action
+}: TableProps<T>) {
+  if (!rows.length) {
+    return (
+      <p className="empty-state">
+        Nenhum registro encontrado.
+      </p>
+    )
+  }
+
   return (
     <div className="table-wrap">
       <table>
         <thead>
           <tr>
-            {columns.map((column) => <th key={column}>{column}</th>)}
-            {action && <th>Acoes</th>}
+            {columns.map((column) => (
+              <th key={String(column)}>
+                {String(column)}
+              </th>
+            ))}
+            {action && <th>Ações</th>}
           </tr>
         </thead>
+
         <tbody>
           {rows.map((row, index) => (
-            <tr key={row.id || row.orderId || index}>
-              {columns.map((column) => <td key={column}>{formatCell(row[column])}</td>)}
+            <tr
+              key={String(
+                (row as { id?: unknown; orderId?: unknown }).id ??
+                (row as { orderId?: unknown }).orderId ??
+                index
+              )}
+            >
+              {columns.map((column) => (
+                <td key={String(column)}>
+                  {formatCell(
+                    row[column as keyof T]
+                  )}
+                </td>
+              ))}
               {action && <td>{action(row)}</td>}
             </tr>
           ))}

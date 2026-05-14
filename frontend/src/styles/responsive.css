@@ -14,6 +14,7 @@
   .dashboard-grid,
   .dashboard-grid.ecommerce,
   .dashboard-grid.admin,
+  .dashboard-grid.account-workspace,
   .bank-hero,
   .bank-actions,
   .bank-metrics {
@@ -37,6 +38,15 @@
 
   .auth-spotlight {
     min-height: 300px;
+  }
+
+  .topbar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .topbar-actions {
+    justify-content: flex-start;
   }
 }
 

@@ -314,6 +314,30 @@ button,
   margin-bottom: 20px;
 }
 
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.topbar-actions button {
+  min-height: 38px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(188, 151, 255, 0.16);
+  color: #efe6ff;
+  box-shadow: none;
+}
+
+.topbar-actions button:hover,
+.topbar-actions button.active {
+  background: #7235d1;
+  border-color: rgba(210, 185, 255, 0.42);
+  box-shadow: 0 10px 24px rgba(68, 28, 125, 0.26);
+}
+
 .workspace > .topbar h1 {
   color: #f7efff;
 }
