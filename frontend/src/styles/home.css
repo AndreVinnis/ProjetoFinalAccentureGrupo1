@@ -1,0 +1,89 @@
+﻿.welcome-band {
+  min-height: 360px;
+  display: grid;
+  align-content: center;
+  grid-template-columns: minmax(360px, 0.7fr) minmax(260px, 0.3fr);
+  gap: 34px;
+  padding: 42px;
+  background: #fff;
+}
+
+.welcome-band h2 {
+  font-size: 34px;
+  color: #21102f;
+}
+
+.welcome-band p:last-child {
+  color: #665b72;
+  align-self: end;
+}
+
+.profile-home {
+  display: grid;
+  gap: 16px;
+}
+
+.hero-panel {
+  min-height: 280px;
+  display: grid;
+  align-content: center;
+  gap: 18px;
+  padding: 36px;
+  border-radius: 8px;
+  background:
+    linear-gradient(135deg, rgba(54, 20, 90, 0.96), rgba(114, 53, 209, 0.9)),
+    #351256;
+  color: #fff;
+}
+
+.hero-panel .eyebrow {
+  color: #d8c7ff;
+}
+
+.hero-panel h2 {
+  max-width: 780px;
+  color: #fff;
+  font-size: 34px;
+}
+
+.hero-panel p {
+  max-width: 720px;
+  color: #e4dbf5;
+}
+
+.hero-panel button {
+  background: #fff;
+  color: #3d1765;
+}
+
+.hero-panel button:hover {
+  background: #efe6ff;
+}
+
+.journey-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.journey-grid article {
+  min-height: 132px;
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  padding: 18px;
+  border: 1px solid #e6ddf2;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 12px 34px rgba(62, 34, 91, 0.08);
+}
+
+.journey-grid strong {
+  color: #341653;
+  font-size: 18px;
+}
+
+.journey-grid span {
+  color: #6a5d75;
+}
+
