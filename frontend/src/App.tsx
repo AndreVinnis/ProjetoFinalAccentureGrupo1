@@ -83,6 +83,7 @@ function App() {
             <span>Banco + Ecommerce</span>
           </div>
         </div>
+<<<<<<< HEAD:frontend/src/App.jsx
 
         {session ? (
           <>
@@ -117,6 +118,21 @@ function App() {
             {activeView === 'adminBank' && <AdminBank api={api} />}
           </>
         )}
+=======
+        <div>
+          <h1>Get started</h1>
+          <p>
+            Edit <code>src/App.tsx</code> and save to test <code>HMR</code>
+          </p>
+        </div>
+        <button
+          type="button"
+          className="counter"
+          onClick={() => setCount((count) => count + 1)}
+        >
+          Count is {count}
+        </button>
+>>>>>>> b1a400c901fe58e2ef2f5a40391809ddede51d91:frontend/src/App.tsx
       </section>
     </main>
   )
