@@ -115,6 +115,18 @@ public class AccountService {
     }
 
     @Transactional
+    public void cashback(Long toUserId, BigDecimal amount, String reference, String description) {
+        Account merchant = accountRepository.findFirstByAccountType(AccountType.MERCHANT)
+                .orElseThrow(() -> new IllegalStateException(
+                        "Conta MERCHANT não encontrada — CompanyAccountInitializer não rodou!"
+                ));
+
+        Account customer = findByUserId(toUserId);
+        debit(merchant, amount, reference, description, TransactionType.CASHBACK);
+        credit(customer, amount, reference, description, TransactionType.CASHBACK);
+    }
+
+    @Transactional
     public void creditMerchant(BigDecimal amount, String reference, String description) {
         Account merchant = accountRepository.findFirstByAccountType(AccountType.MERCHANT)
                 .orElseGet(this::createMerchantAccountIfMissing);

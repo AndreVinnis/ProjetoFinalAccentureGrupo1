@@ -22,6 +22,8 @@ public interface BankingFacade {
 
     void issueRefund(Long toUserId, BigDecimal amount, String reference, String description);
 
+    void applyCashback(Long toUserId, BigDecimal amount, String reference, String description);
+
     /**
      * Cria uma cobrança PIX em nome da empresa.
      * amount valor a ser cobrado

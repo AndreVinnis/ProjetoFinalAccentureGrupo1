@@ -13,6 +13,7 @@ import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.domain.SavedCard;
 import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.dto.DiscountApplication;
 import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.dto.OrderResponse;
 import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.enums.CartStatus;
+import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.enums.CustomerTier;
 import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.enums.OrderStatus;
 import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.enums.PaymentMethod;
 import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.events.OrderCancelledEvent;
@@ -184,6 +185,59 @@ class OrderServiceTest {
         ArgumentCaptor<OrderPaidEvent> evCap = ArgumentCaptor.forClass(OrderPaidEvent.class);
         verify(eventPublisher).publishEvent(evCap.capture());
         assertEquals("CREDIT_CARD", evCap.getValue().paymentMethod());
+    }
+
+    @Test
+    void checkoutCard_DeveAplicarCashbackDeCincoPorCento_QuandoClienteGold() {
+        customer.setTier(CustomerTier.GOLD);
+        SavedCard savedCard = SavedCard.builder()
+                .id(30L)
+                .customer(customer)
+                .bankingCardId(300L)
+                .last4Digits("1111")
+                .build();
+        when(customerService.findByEmail(EMAIL)).thenReturn(customer);
+        when(cartRepository.findByCustomer_Id(1L)).thenReturn(Optional.of(cart));
+        when(cartService.isClosed(cart)).thenReturn(true);
+        when(savedCardService.findByIdAndCustomer(30L, 1L)).thenReturn(savedCard);
+        when(userFacade.findByEmail(EMAIL)).thenReturn(userInfo());
+        when(orderRepository.save(any(Order.class))).thenAnswer(inv -> {
+            Order o = inv.getArgument(0);
+            o.setId(201L);
+            return o;
+        });
+
+        OrderResponse response = orderService.checkoutCard(EMAIL, 30L, "123");
+
+        assertEquals(new BigDecimal("300.00"), response.totalAmount());
+        assertEquals(BigDecimal.ZERO, response.discountTotal());
+        verify(bankingFacade).chargeCard(eq(300L), eq(new BigDecimal("300.00")), eq("123"), any(), eq("ORDER-201"));
+        verify(bankingFacade).applyCashback(eq(10L), eq(new BigDecimal("15.00")), eq("ORDER-201"), any());
+    }
+
+    @Test
+    void checkoutCard_NaoDeveAplicarCashback_QuandoClienteNaoEhGold() {
+        customer.setTier(CustomerTier.SILVER);
+        SavedCard savedCard = SavedCard.builder()
+                .id(30L)
+                .customer(customer)
+                .bankingCardId(300L)
+                .last4Digits("1111")
+                .build();
+        when(customerService.findByEmail(EMAIL)).thenReturn(customer);
+        when(cartRepository.findByCustomer_Id(1L)).thenReturn(Optional.of(cart));
+        when(cartService.isClosed(cart)).thenReturn(true);
+        when(savedCardService.findByIdAndCustomer(30L, 1L)).thenReturn(savedCard);
+        when(userFacade.findByEmail(EMAIL)).thenReturn(userInfo());
+        when(orderRepository.save(any(Order.class))).thenAnswer(inv -> {
+            Order o = inv.getArgument(0);
+            o.setId(201L);
+            return o;
+        });
+
+        orderService.checkoutCard(EMAIL, 30L, "123");
+
+        verify(bankingFacade, never()).applyCashback(any(), any(), any(), any());
     }
 
     @Test

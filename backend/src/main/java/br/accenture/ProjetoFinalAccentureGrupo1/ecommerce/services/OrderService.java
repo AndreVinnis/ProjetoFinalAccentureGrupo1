@@ -8,6 +8,7 @@ import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.dto.DiscountApplicatio
 import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.dto.OrderItemResponse;
 import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.dto.OrderResponse;
 import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.enums.CartStatus;
+import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.enums.CustomerTier;
 import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.enums.OrderStatus;
 import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.enums.PaymentMethod;
 import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.events.OrderCancelledEvent;
@@ -30,6 +31,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -42,6 +44,7 @@ public class OrderService {
 
     private static final Logger log = LoggerFactory.getLogger(OrderService.class);
     private static final String orderPrefix = "ORDER-";
+    private static final BigDecimal GOLD_CARD_CASHBACK_RATE = new BigDecimal("0.05");
 
     private final CartService cartService;
     private final CartRepository cartRepository;
@@ -158,6 +161,7 @@ public class OrderService {
                 defaultDescription,
                 orderPrefix + order.getId()
         );
+        applyGoldCardCashback(customer, totalAmount, order.getId());
 
         for(OrderItem item: order.getItems()){
             productService.consumeReserved(item.getProductId(), item.getQuantity());
@@ -408,5 +412,21 @@ public class OrderService {
         } catch (NumberFormatException e) {
             throw new IllegalArgumentException("Referência inválida: " + reference);
         }
+    }
+
+    private void applyGoldCardCashback(Customer customer, BigDecimal totalAmount, Long orderId) {
+        if (customer.getTier() != CustomerTier.GOLD) {
+            return;
+        }
+
+        BigDecimal cashbackAmount = totalAmount.multiply(GOLD_CARD_CASHBACK_RATE)
+                .setScale(2, RoundingMode.HALF_EVEN);
+
+        bankingFacade.applyCashback(
+                customer.getUserId(),
+                cashbackAmount,
+                orderPrefix + orderId,
+                "Cashback de 5% referente a compra no cartao de credito"
+        );
     }
 }
