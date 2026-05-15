@@ -1,0 +1,68 @@
+.profile-view-mode {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    margin-bottom: 20px;
+}
+
+.profile-field {
+    display: grid;
+    gap: 6px;
+}
+
+.profile-field strong {
+    color: #5b2dae;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.profile-field p {
+    margin: 0;
+    padding: 10px 12px;
+    background: #f5f0fd;
+    border: 1px solid #ece5f3;
+    border-radius: 7px;
+    color: #3a2e45;
+    font-size: 14px;
+}
+
+.profile-form-actions {
+    display: flex;
+    gap: 12px;
+    margin-top: 8px;
+}
+
+.profile-tier-badge {
+    display: inline-block;
+    margin-top: 16px;
+    padding: 6px 12px;
+    border-radius: 999px;
+    background: #ede4ff;
+    color: #3d1a70;
+    border: 1px solid #cdb7ff;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+}
+
+.panel .simple-list>div {
+    background: #fbf9fe;
+    border: 1px solid #d7cae7;
+    color: #2f124b;
+    font-size: 14px;
+    font-weight: 500;
+    transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.panel .simple-list>div:hover {
+    background: #f5f0fd;
+    border-color: #c9b8dc;
+}
+
+.panel .simple-list>div button {
+    min-height: 32px;
+    padding: 6px 12px;
+    font-size: 13px;
+}

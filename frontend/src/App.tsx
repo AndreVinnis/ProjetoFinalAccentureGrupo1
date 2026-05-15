@@ -1,6 +1,7 @@
-﻿/* eslint-disable @typescript-eslint/ban-ts-comment */
+/* eslint-disable @typescript-eslint/ban-ts-comment */
 // @ts-nocheck
 import { useEffect, useMemo, useState } from 'react'
+import { Navigate, NavLink, Outlet, Route, Routes, useLocation } from 'react-router-dom'
 import './App.css'
 import { LoadingScreen } from './components/layout/LoadingScreen'
 import { RoleNavigation } from './components/layout/RoleNavigation'
@@ -8,19 +9,17 @@ import { AuthPanel } from './features/auth/AuthPanel'
 import { AdminBank } from './features/banking/AdminBank'
 import { CustomerBank } from './features/banking/CustomerBank'
 import { Cart } from './features/ecommerce/pages/Cart'
-import { Storefront } from './features/ecommerce/pages/Storefront'
+import { Orders } from './features/ecommerce/pages/Orders'
 import { Profile } from './features/ecommerce/pages/Profile'
-import { AdminHome, CustomerHome } from './features/home/HomeViews'
+import { Storefront } from './features/ecommerce/pages/Storefront'
 import { createApi } from './services/api'
-import { defaultViewForRoles, isAdmin, viewTitle } from './utils/auth'
+import { defaultPathForRoles, isAdmin, titleForPath } from './utils/auth'
 
 function App() {
   const [session, setSession] = useState(() => {
     const saved = localStorage.getItem('acc_session')
     return saved ? JSON.parse(saved) : null
   })
-  const [mode, setMode] = useState('login')
-  const [activeView, setActiveView] = useState('customerHome')
   const [toastMessage, setToast] = useState('')
   const [bootLoading, setBootLoading] = useState(true)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
@@ -29,15 +28,6 @@ function App() {
   const roles = useMemo(() => session?.roles || [], [session?.roles])
   const admin = isAdmin(roles)
   const customer = roles.includes('CUSTOMER')
-
-  function handleAuthMouseMove(event) {
-    if (session) return
-    const rect = event.currentTarget.getBoundingClientRect()
-    const x = ((event.clientX - rect.left) / rect.width) * 100
-    const y = ((event.clientY - rect.top) / rect.height) * 100
-    event.currentTarget.style.setProperty('--mouse-x', `${x}%`)
-    event.currentTarget.style.setProperty('--mouse-y', `${y}%`)
-  }
 
   useEffect(() => {
     if (!session) return
@@ -55,81 +45,191 @@ function App() {
     return () => clearTimeout(t)
   }, [toastMessage])
 
-  function applySession(nextSession) {
-    setSession(nextSession)
-    setActiveView(defaultViewForRoles(nextSession.roles || []))
-  }
-
   function handleLogout() {
     localStorage.removeItem('acc_session')
     setSession(null)
-    setMode('login')
   }
 
-  return (
-    <main className={`app-shell ${sidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
-      {bootLoading && <LoadingScreen title="Preparando sua experiencia ACC" detail="Conectando banco e ecommerce" />}
-      <aside className="sidebar">
-        {session && (
-          <button className="sidebar-toggle" onClick={() => setSidebarCollapsed((current) => !current)} aria-label="Alternar menu lateral">
+  function handleAuthMouseMove(event) {
+    if (session) return
+    const rect = event.currentTarget.getBoundingClientRect()
+    const x = ((event.clientX - rect.left) / rect.width) * 100
+    const y = ((event.clientY - rect.top) / rect.height) * 100
+    event.currentTarget.style.setProperty('--mouse-x', `${x}%`)
+    event.currentTarget.style.setProperty('--mouse-y', `${y}%`)
+  }
+
+  function RequireAuth({ children }) {
+    const location = useLocation()
+    if (!session) return <Navigate to="/login" replace state={{ from: location }} />
+    return children
+  }
+
+  function RequireAdmin({ children }) {
+    if (!admin) return <Navigate to="/banco" replace />
+    return children
+  }
+
+  function AppShell() {
+    const location = useLocation()
+    return (
+      <main className={`app-shell ${sidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
+        <aside className="sidebar">
+          <button
+            className="sidebar-toggle"
+            onClick={() => setSidebarCollapsed((current) => !current)}
+            aria-label="Alternar menu lateral"
+          >
             <span />
             <span />
             <span />
           </button>
-        )}
-        <div className="brand-block">
-          <div className="brand-mark">ACC</div>
-          <div className="sidebar-copy">
-            <strong>ACC Bank</strong>
-            <span>Banco + Ecommerce</span>
-          </div>
-        </div>
-        {session ? (
-          <>
-            <div className="session-card">
-              <span>Logado como</span>
-              <strong>{session.name}</strong>
-              <small>{admin ? 'Administrador' : 'Cliente'} - {roles.join(' + ')}</small>
+          <div className="brand-block">
+            <div className="brand-mark">ACC</div>
+            <div className="sidebar-copy">
+              <strong>ACC Bank</strong>
+              <span>Banco + Ecommerce</span>
             </div>
-            <RoleNavigation activeView={activeView} roles={roles} setActiveView={setActiveView} />
-            <button className="ghost-button logout-button" onClick={handleLogout}>Sair</button>
-          </>
-        ) : null}
-      </aside>
-
-      <section className={`workspace ${!session ? 'auth-workspace' : ''}`} onMouseMove={handleAuthMouseMove}>
-        <header className="topbar">
-          <div>
-            <p className="eyebrow">Plataforma integrada</p>
-            <h1>{viewTitle(activeView)}</h1>
           </div>
-          {session && customer ? (
-            <div className="topbar-actions">
-              <button className={activeView === 'storefront' ? 'active' : ''} onClick={() => setActiveView('storefront')}>Vitrine</button>
-              <button className={activeView === 'cart' ? 'active' : ''} onClick={() => setActiveView('cart')}>Carrinho</button>
-              <button className={activeView === 'profile' ? 'active' : ''} onClick={() => setActiveView('profile')}>Minhas informações</button>
+          <div className="session-card">
+            <span>Logado como</span>
+            <strong>{session.name}</strong>
+            <small>{admin ? 'Administrador' : 'Cliente'} - {roles.join(' + ')}</small>
+          </div>
+          <RoleNavigation roles={roles} />
+          <button className="ghost-button logout-button" onClick={handleLogout}>Sair</button>
+        </aside>
+
+        <section className="workspace">
+          <header className="topbar">
+            <div>
+              <p className="eyebrow">Plataforma integrada</p>
+              <h1>{titleForPath(location.pathname)}</h1>
             </div>
-          ) : null}
-        </header>
+            {customer && ['/loja', '/carrinho', '/perfil', '/pedidos'].some((p) => location.pathname.startsWith(p)) ? (
+              <div className="topbar-actions">
+                <NavLink to="/loja" className={({ isActive }) => (isActive ? 'active' : '')}>Vitrine</NavLink>
+                <NavLink to="/carrinho" className={({ isActive }) => (isActive ? 'active' : '')}>Carrinho</NavLink>
+                <NavLink to="/perfil" className={({ isActive }) => (isActive ? 'active' : '')}>Minhas informações</NavLink>
+              </div>
+            ) : null}
+          </header>
 
-        {toastMessage ? <div className="toast-banner" role="status">{toastMessage}</div> : null}
+          {toastMessage ? <div className="toast-banner" role="status">{toastMessage}</div> : null}
 
-        {!session ? (
-          <AuthPanel api={api} mode={mode} setMode={setMode} setSession={applySession} setToast={setToast} />
-        ) : (
-          <>
-            {activeView === 'customerHome' && <CustomerHome api={api} setActiveView={setActiveView} setToast={setToast} />}
-            {activeView === 'adminHome' && <AdminHome roles={roles} setActiveView={setActiveView} />}
-            {activeView === 'customerBank' && <CustomerBank api={api} />}
-            {activeView === 'storefront' && <Storefront api={api} />}
-            {activeView === 'cart' && <Cart api={api} />}
-            {activeView === 'profile' && <Profile api={api} />}
-            {activeView === 'adminEcommerce' && <AdminEcommerce api={api} />}
-            {activeView === 'adminBank' && <AdminBank api={api} />}
-          </>
-        )}
-      </section>
-    </main>
+          <Outlet />
+        </section>
+      </main>
+    )
+  }
+
+  function AuthLayout() {
+    return (
+      <main className="app-shell auth-only">
+        <aside className="sidebar">
+          <div className="brand-block">
+            <div className="brand-mark">ACC</div>
+            <div className="sidebar-copy">
+              <strong>ACC Bank</strong>
+              <span>Banco + Ecommerce</span>
+            </div>
+          </div>
+        </aside>
+        <section className="workspace auth-workspace" onMouseMove={handleAuthMouseMove}>
+          <header className="topbar">
+            <div>
+              <p className="eyebrow">Plataforma integrada</p>
+              <h1>Acesso</h1>
+            </div>
+          </header>
+
+          {toastMessage ? <div className="toast-banner" role="status">{toastMessage}</div> : null}
+
+          <Outlet />
+        </section>
+      </main>
+ )
+  }
+
+  return (
+    <>
+      {bootLoading && (
+        <LoadingScreen
+          title="Preparando sua experiencia ACC"
+          detail="Conectando banco e ecommerce"
+        />
+      )}
+
+      <Routes>
+        {/* Rota publica de autenticacao */}
+        <Route element={<AuthLayout />}>
+          <Route
+            path="/login"
+            element={
+              session
+                ? <Navigate to={defaultPathForRoles(roles)} replace />
+                : <AuthPanel api={api} setSession={setSession} setToast={setToast} />
+            }
+          />
+        </Route>
+
+        {/* Rotas protegidas com layout completo */}
+        <Route
+          element={
+            <RequireAuth>
+              <AppShell />
+            </RequireAuth>
+          }
+        >
+          <Route path="/banco" element={<CustomerBank api={api} />} />
+          <Route path="/loja" element={<Storefront api={api} />} />
+          <Route path="/carrinho" element={<Cart api={api} />} />
+          <Route path="/perfil" element={<Profile api={api} />} />
+          <Route path="/pedidos" element={<Orders api={api} />} />
+
+          {/* Admin */}
+          <Route
+            path="/admin"
+            element={
+              <RequireAdmin>
+                <div className="dashboard-grid">
+                  <p>Painel admin — selecione uma area no menu lateral.</p>
+                </div>
+              </RequireAdmin>
+            }
+          />
+          <Route
+            path="/admin/banco"
+            element={
+              <RequireAdmin>
+                <AdminBank api={api} />
+              </RequireAdmin>
+            }
+          />
+          <Route
+            path="/admin/ecommerce"
+            element={
+              <RequireAdmin>
+                <div className="dashboard-grid">
+                  <p>Gestao ecommerce em construcao.</p>
+                </div>
+              </RequireAdmin>
+            }
+          />
+        </Route>
+
+        {/* Landing e fallback */}
+        <Route
+          path="/"
+          element={
+            session
+              ? <Navigate to={defaultPathForRoles(roles)} replace />
+              : <Navigate to="/login" replace />
+          }
+        />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </>
   )
 }
 
