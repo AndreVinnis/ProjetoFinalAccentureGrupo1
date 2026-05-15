@@ -10,42 +10,34 @@ import java.time.Instant;
 @RestControllerAdvice
 public class BankingExceptionHandler {
 
-    @ExceptionHandler(CreditCardNotFoundException.class)
-    public ResponseEntity<ErrorResponse> handleCreditCardNotFound(CreditCardNotFoundException ex) {
+    @ExceptionHandler({
+            AccountNotFoundException.class,
+            CardNotFoundException.class,
+            CreditCardNotFoundException.class,
+            InvoiceNotFoundException.class,
+            PaymentRequestNotFoundException.class
+    })
+    public ResponseEntity<ErrorResponse> handleNotFound(RuntimeException ex) {
         return error(HttpStatus.NOT_FOUND, ex.getMessage());
     }
 
-    @ExceptionHandler(CreditCardAlreadyExistsException.class)
-    public ResponseEntity<ErrorResponse> handleCreditCardAlreadyExists(CreditCardAlreadyExistsException ex) {
+    @ExceptionHandler({
+            AccountAlreadyExistsException.class,
+            CreditCardAlreadyExistsException.class
+    })
+    public ResponseEntity<ErrorResponse> handleConflict(RuntimeException ex) {
         return error(HttpStatus.CONFLICT, ex.getMessage());
-    }
-
-    @ExceptionHandler(AccountNotFoundException.class)
-    public ResponseEntity<ErrorResponse> handleAccountNotFound(AccountNotFoundException ex) {
-        return error(HttpStatus.NOT_FOUND, ex.getMessage());
-    }
-
-    @ExceptionHandler(InvoiceNotFoundException.class)
-    public ResponseEntity<ErrorResponse> handleInvoiceNotFound(InvoiceNotFoundException ex) {
-        return error(HttpStatus.NOT_FOUND, ex.getMessage());
-    }
-
-    @ExceptionHandler(AccountAlreadyExistsException.class)
-    public ResponseEntity<ErrorResponse> handleAccountAlreadyExists(AccountAlreadyExistsException ex) {
-        return error(HttpStatus.CONFLICT, ex.getMessage());
-    }
-
-    @ExceptionHandler(CreditCardBlockedException.class)
-    public ResponseEntity<ErrorResponse> handleCreditCardBlocked(CreditCardBlockedException ex) {
-        return error(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage());
     }
 
     @ExceptionHandler({
             AccountBlockedException.class,
             AccountNotActiveException.class,
             AccountRestrictedException.class,
+            CreditCardBlockedException.class,
             InsufficientBalanceException.class,
+            InsufficientCreditLimitException.class,
             InvalidAmountException.class,
+            InvoiceNotCloseableException.class,
             InvoiceNotPayableException.class,
             PaymentRequestNotPayableException.class
     })
@@ -53,28 +45,12 @@ public class BankingExceptionHandler {
         return error(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage());
     }
 
-    @ExceptionHandler(PaymentRequestNotFoundException.class)
-    public ResponseEntity<ErrorResponse> handlePaymentRequestNotFound(PaymentRequestNotFoundException ex) {
-        return error(HttpStatus.NOT_FOUND, ex.getMessage());
-    }
-
-    @ExceptionHandler(InsufficientCreditLimitException.class)
-    public ResponseEntity<ErrorResponse> handleInsufficientCreditLimit(InsufficientCreditLimitException ex) {
-        return error(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage());
-    }
-
-    @ExceptionHandler(WrongCvvException.class)
-    public ResponseEntity<ErrorResponse> handleWrongCvv(WrongCvvException ex) {
-        return error(HttpStatus.BAD_REQUEST, ex.getMessage());
-    }
-
-    @ExceptionHandler(InvoiceNotCloseableException.class)
-    public ResponseEntity<ErrorResponse> handleInvoiceNotCloseable(InvoiceNotCloseableException ex) {
-        return error(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage());
-    }
-
-    @ExceptionHandler(InvalidCardException.class)
-    public ResponseEntity<ErrorResponse> handleInvalidCard(InvalidCardException ex) {
+    @ExceptionHandler({
+            InvalidCardException.class,
+            WrongCvvException.class,
+            WrongPasswordException.class
+    })
+    public ResponseEntity<ErrorResponse> handleBadRequest(RuntimeException ex) {
         return error(HttpStatus.BAD_REQUEST, ex.getMessage());
     }
 
