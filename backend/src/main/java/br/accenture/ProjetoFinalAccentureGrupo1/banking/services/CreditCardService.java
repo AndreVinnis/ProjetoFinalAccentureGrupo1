@@ -39,7 +39,6 @@ public class CreditCardService {
     private final CreditCardNumberGenerator cardNumberGenerator;
     private final InvoiceService invoiceService;
     private final AccountService accountService;
-    private final ApplicationEventPublisher eventPublisher;
     private final AESEncryptionService encryptionService;
 
     @Transactional
@@ -51,8 +50,14 @@ public class CreditCardService {
     }
 
     @Transactional(readOnly = true)
-    public CreditCardResponse findMyCard(String email) {
+    public CreditCardResponse findMyCard(String email, String password) {
+        Account account = accountService.findAccountByUserEmail(email);
         CreditCard card = findCard(email);
+        if(!encryptionService.decrypt(account.getPassword()).equals(password)){
+            System.out.println("Sistema: " + encryptionService.decrypt(account.getPassword()));
+            System.out.println("Passado: " + password);
+            throw new WrongPasswordException();
+        }
         return toCardResponse(card);
     }
 
@@ -178,16 +183,6 @@ public class CreditCardService {
         Account account = accountService.findByUserId(user.id());
 
         return creditCardRepository.findByAccount(account).orElseThrow(() -> new CreditCardNotFoundException(user.id()));
-    }
-
-    private void publishPaymentReceived(CreditCard card, BigDecimal amount, String reference) {
-        Long payerUserId = card.getAccount().getUserId();
-        eventPublisher.publishEvent(new PaymentReceivedEvent(
-                reference,
-                payerUserId,
-                amount,
-                Instant.now()
-        ));
     }
 
     private CreditCardResponse toCardResponse(CreditCard card) {

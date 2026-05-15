@@ -20,7 +20,7 @@ public class UserRegisteredListener {
 
     @EventListener
     public void onUserRegistered(UserRegisteredEvent event) {
-        Account account= accountService.createForUser(event.userId());
+        Account account= accountService.createForUser(event.userId(), event.password());
         creditCardService.createCardForAccount(account);
         log.info("Conta criada para o usuário {} (e-mail: {}).",
                 event.userId(), event.email());

@@ -32,6 +32,7 @@ class UserRegisteredListenerTest {
                 "12345678901",
                 LocalDate.of(1990, 1, 1),
                 "11999999999",
+                "1234",
                 "01001-000",
                 "SP",
                 "Sao Paulo",

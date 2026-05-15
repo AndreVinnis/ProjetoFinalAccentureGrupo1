@@ -1,8 +1,6 @@
 package br.accenture.ProjetoFinalAccentureGrupo1.banking.controllers;
 
-import br.accenture.ProjetoFinalAccentureGrupo1.banking.dto.CardPurchaseResponse;
-import br.accenture.ProjetoFinalAccentureGrupo1.banking.dto.CreditCardResponse;
-import br.accenture.ProjetoFinalAccentureGrupo1.banking.dto.CreditLimitResponse;
+import br.accenture.ProjetoFinalAccentureGrupo1.banking.dto.*;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.services.CreditCardService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -28,8 +26,11 @@ public class CreditCardController {
 
     @GetMapping("/me")
     @PreAuthorize("hasRole('CUSTOMER')")
-    public ResponseEntity<CreditCardResponse> findMyCard(@AuthenticationPrincipal UserDetails userDetails) {
-        return ResponseEntity.ok(creditCardService.findMyCard(userDetails.getUsername()));
+    public ResponseEntity<CreditCardResponse> findMyCard(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @RequestBody @Valid AccountPasswordRequest request
+    ) {
+        return ResponseEntity.ok(creditCardService.findMyCard(userDetails.getUsername(), request.password()));
     }
 
     @GetMapping("/me/limit")

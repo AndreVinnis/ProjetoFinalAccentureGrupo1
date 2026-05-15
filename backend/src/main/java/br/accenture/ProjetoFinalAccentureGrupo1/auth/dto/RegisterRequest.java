@@ -29,6 +29,11 @@ public record RegisterRequest(
         @Past(message = "Data de nascimento deve ser no passado")
         LocalDate birthDate,
 
+        // Dados de Account (módulo banking)
+        @NotBlank(message = "Senha da conta é obrigatória")
+        @Size(min = 4, max = 4, message = "Senha deve ter 4 dígitos")
+        String accountPassword,
+
         // Dados do Customer (módulo ecommerce)
         @NotBlank(message = "Telefone é obrigatório")
         @Size(max = 20)

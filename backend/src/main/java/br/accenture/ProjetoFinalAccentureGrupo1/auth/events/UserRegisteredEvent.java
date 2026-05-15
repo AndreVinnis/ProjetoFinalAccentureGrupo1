@@ -9,6 +9,7 @@ public record UserRegisteredEvent(
         String email,
         String cpf,
         LocalDate birthDate,
+        String password,
         String phone,
         String zipCode,
         String state,

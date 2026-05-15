@@ -1,7 +1,6 @@
 package br.accenture.ProjetoFinalAccentureGrupo1.banking.services;
 
-import br.accenture.ProjetoFinalAccentureGrupo1.auth.domain.User;
-import br.accenture.ProjetoFinalAccentureGrupo1.auth.repository.UserRepository;
+import br.accenture.ProjetoFinalAccentureGrupo1.auth.api.UserFacade;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.domain.Account;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.domain.Transaction;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.enums.AccountStatus;
@@ -14,6 +13,7 @@ import br.accenture.ProjetoFinalAccentureGrupo1.banking.exceptions.InsufficientB
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.repository.AccountRepository;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.repository.TransactionRepository;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.utils.AccountNumberGenerator;
+import br.accenture.ProjetoFinalAccentureGrupo1.shared.security.AESEncryptionService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -22,7 +22,6 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import java.math.BigDecimal;
-import java.time.LocalDate;
 import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -37,7 +36,7 @@ import static org.mockito.Mockito.when;
 class AccountServiceTest {
 
     @Mock
-    private UserRepository userRepository;
+    private UserFacade userFacade;
 
     @Mock
     private AccountRepository accountRepository;
@@ -47,6 +46,10 @@ class AccountServiceTest {
 
     @Mock
     private AccountNumberGenerator accountNumberGenerator;
+
+
+    @Mock
+    private AESEncryptionService encryptionService;
 
     @InjectMocks
     private AccountService accountService;
@@ -67,19 +70,13 @@ class AccountServiceTest {
 
     @Test
     void createForUser_DeveCriarConta_QuandoUsuarioNaoTemConta() {
-        User user = User.builder()
-                .id(10L)
-                .name("Ana Silva")
-                .email("ana@email.com")
-                .birthDate(LocalDate.of(1990, 5, 15))
-                .build();
-
         when(accountRepository.findByUserId(10L)).thenReturn(Optional.empty());
         when(accountNumberGenerator.generateAccountNumber()).thenReturn("00001-0");
         when(accountRepository.existsByAccountNumber("00001-0")).thenReturn(false);
+        when(encryptionService.encrypt("1234")).thenReturn("ENC1234");
         when(accountRepository.save(any(Account.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        Account created = accountService.createForUser(10L);
+        Account created = accountService.createForUser(10L, "1234");
 
         assertEquals(10L, created.getUserId());
         assertEquals("00001-0", created.getAccountNumber());
@@ -92,7 +89,7 @@ class AccountServiceTest {
     void createForUser_DeveSerIdempotente_QuandoContaJaExiste() {
         when(accountRepository.findByUserId(10L)).thenReturn(Optional.of(active));
 
-        Account result = accountService.createForUser(10L);
+        Account result = accountService.createForUser(10L, "1234");
 
         assertSame(active, result);
         verify(accountRepository, never()).save(any());

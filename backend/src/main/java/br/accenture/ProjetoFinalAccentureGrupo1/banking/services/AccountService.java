@@ -21,6 +21,8 @@ import br.accenture.ProjetoFinalAccentureGrupo1.banking.exceptions.InvalidAmount
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.repository.AccountRepository;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.repository.TransactionRepository;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.utils.AccountNumberGenerator;
+import br.accenture.ProjetoFinalAccentureGrupo1.shared.security.AESEncryptionService;
+import br.accenture.ProjetoFinalAccentureGrupo1.shared.security.EncryptionService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
@@ -39,11 +41,12 @@ public class AccountService {
     private final AccountRepository accountRepository;
     private final TransactionRepository transactionRepository;
     private final AccountNumberGenerator accountNumberGenerator;
+    private final AESEncryptionService encryptionService;
 
     @Transactional
-    public Account createForUser(Long userId) {
+    public Account createForUser(Long userId, String password) {
         return accountRepository.findByUserId(userId)
-                .orElseGet(() -> createCustomerAccount(userId));
+                .orElseGet(() -> createCustomerAccount(userId, password));
     }
 
     @Transactional
@@ -51,6 +54,7 @@ public class AccountService {
         return accountRepository.findFirstByAccountType(AccountType.MERCHANT)
                 .orElseGet(() -> accountRepository.save(Account.builder()
                         .accountNumber(generateUniqueAccountNumber())
+                        .password("0000")
                         .balance(MERCHANT_INITIAL_BALANCE)
                         .accountType(AccountType.MERCHANT)
                         .status(AccountStatus.ACTIVE)
@@ -205,10 +209,11 @@ public class AccountService {
         return toAccountResponse(accountRepository.save(account));
     }
 
-    private Account  createCustomerAccount(Long userId) {
+    private Account  createCustomerAccount(Long userId, String password) {
         Account account = Account.builder()
                 .userId(userId)
                 .accountNumber(generateUniqueAccountNumber())
+                .password(encryptionService.encrypt(password))
                 .balance(BigDecimal.ZERO)
                 .accountType(AccountType.CUSTOMER)
                 .status(AccountStatus.ACTIVE)
@@ -217,7 +222,7 @@ public class AccountService {
         return accountRepository.save(account);
     }
 
-    private Account findAccountByUserEmail(String email) {
+    public Account findAccountByUserEmail(String email) {
         UserInfo user = userFacade.findByEmail(email);
         return findByUserId(user.id());
     }

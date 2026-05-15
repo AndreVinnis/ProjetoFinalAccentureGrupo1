@@ -40,6 +40,9 @@ public class Account {
     @Column(name = "account_number", nullable = false, unique = true, length = 20)
     private String accountNumber;
 
+    @Column(name = "password", nullable = false, length = 64)
+    private String password;
+
     @Column(nullable = false, precision = 14, scale = 2)
     @Builder.Default
     private BigDecimal balance = BigDecimal.ZERO;
