@@ -10,28 +10,15 @@ import java.time.Instant;
 @RestControllerAdvice
 public class EcommerceExceptionHandler {
 
-    @ExceptionHandler(CustomerNotFoundException.class)
-    public ResponseEntity<ErrorResponse> handleCustomerNotFound(CustomerNotFoundException ex) {
-        return error(HttpStatus.NOT_FOUND, ex.getMessage());
-    }
-
-    @ExceptionHandler(CartItemNotFoundException.class)
-    public ResponseEntity<ErrorResponse> handleCartItemNotFound(CartItemNotFoundException ex) {
-        return error(HttpStatus.NOT_FOUND, ex.getMessage());
-    }
-
-    @ExceptionHandler(CartNotFoundException.class)
-    public ResponseEntity<ErrorResponse> handleCartItemNotFound(CartNotFoundException ex) {
-        return error(HttpStatus.NOT_FOUND, ex.getMessage());
-    }
-
-    @ExceptionHandler(CategoryNotFoundException.class)
-    public ResponseEntity<ErrorResponse> handleCategoryNotFound(CategoryNotFoundException ex) {
-        return error(HttpStatus.NOT_FOUND, ex.getMessage());
-    }
-
-    @ExceptionHandler(SavedCardNotFoundException.class)
-    public ResponseEntity<ErrorResponse> handleSavedCardNotFound(SavedCardNotFoundException ex) {
+    @ExceptionHandler({
+            CartItemNotFoundException.class,
+            CartNotFoundException.class,
+            CategoryNotFoundException.class,
+            CustomerNotFoundException.class,
+            OrderNotFound.class,
+            SavedCardNotFoundException.class
+    })
+    public ResponseEntity<ErrorResponse> handleNotFound(RuntimeException ex) {
         return error(HttpStatus.NOT_FOUND, ex.getMessage());
     }
 
@@ -43,13 +30,15 @@ public class EcommerceExceptionHandler {
         return error(HttpStatus.CONFLICT, ex.getMessage());
     }
 
-    @ExceptionHandler(ProductNotAvailableException.class)
-    public ResponseEntity<ErrorResponse> handleProductNotAvailable(ProductNotAvailableException ex) {
-        return error(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage());
-    }
-
-    @ExceptionHandler(InsufficientStockException.class)
-    public ResponseEntity<ErrorResponse> handleInsufficientStock(InsufficientStockException ex) {
+    @ExceptionHandler({
+            CartEmptyException.class,
+            CartWasNotClosedException.class,
+            IllegalOrderStatusException.class,
+            InsufficientStockException.class,
+            OrderShippedException.class,
+            ProductNotAvailableException.class
+    })
+    public ResponseEntity<ErrorResponse> handleBusinessRule(RuntimeException ex) {
         return error(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage());
     }
 
