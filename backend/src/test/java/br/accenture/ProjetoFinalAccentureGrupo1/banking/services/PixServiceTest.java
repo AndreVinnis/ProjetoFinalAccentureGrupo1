@@ -9,10 +9,13 @@ import br.accenture.ProjetoFinalAccentureGrupo1.banking.enums.AccountStatus;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.enums.AccountType;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.enums.PaymentRequestStatus;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.enums.TransactionType;
+import br.accenture.ProjetoFinalAccentureGrupo1.banking.events.PaymentExpiredEvent;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.events.PaymentReceivedEvent;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.exceptions.PaymentRequestNotFoundException;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.exceptions.PaymentRequestNotPayableException;
+import br.accenture.ProjetoFinalAccentureGrupo1.banking.exceptions.WrongPasswordException;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.repository.PaymentRequestRepository;
+import br.accenture.ProjetoFinalAccentureGrupo1.shared.security.AESEncryptionService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -20,14 +23,17 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
+
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.Optional;
 import java.util.Set;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -39,6 +45,7 @@ class PixServiceTest {
     @Mock private AccountService accountService;
     @Mock private UserFacade userFacade;
     @Mock private ApplicationEventPublisher eventPublisher;
+    @Mock private AESEncryptionService encryptionService;
 
     @InjectMocks
     private PixService pixService;
@@ -65,6 +72,7 @@ class PixServiceTest {
                 .balance(new BigDecimal("500.00"))
                 .accountType(AccountType.CUSTOMER)
                 .status(AccountStatus.ACTIVE)
+                .password("senhaCriptografada123")
                 .build();
 
         pendingRequest = PaymentRequest.builder()
@@ -84,13 +92,14 @@ class PixServiceTest {
     }
 
     @Test
-    void payByCode_DeveProcessarPagamento_QuandoCobrancaValida() {
+    void payByCode_DeveProcessarPagamento_QuandoCobrancaValidaESenhaCorreta() {
         when(paymentRequestRepository.findByCode("abc-123")).thenReturn(Optional.of(pendingRequest));
         when(userFacade.findByEmail("ana@email.com")).thenReturn(payerInfo);
-        when(accountService.findByUserId(10L)).thenReturn(payerAccount);
+        when(accountService.findAccountByUserEmail("ana@email.com")).thenReturn(payerAccount);
+        when(encryptionService.encrypt("123456")).thenReturn("senhaCriptografada123");
         when(paymentRequestRepository.save(pendingRequest)).thenReturn(pendingRequest);
 
-        PaymentRequest result = pixService.payByCode("abc-123", "ana@email.com");
+        PaymentRequest result = pixService.payByCode("abc-123", "ana@email.com", "123456");
 
         assertEquals(PaymentRequestStatus.PAID, result.getStatus());
         assertEquals(10L, result.getPaidByUserId());
@@ -105,7 +114,7 @@ class PixServiceTest {
 
         assertThrows(
                 PaymentRequestNotFoundException.class,
-                () -> pixService.payByCode("nope", "ana@email.com")
+                () -> pixService.payByCode("nope", "ana@email.com", "123456")
         );
     }
 
@@ -116,23 +125,42 @@ class PixServiceTest {
 
         assertThrows(
                 PaymentRequestNotPayableException.class,
-                () -> pixService.payByCode("abc-123", "ana@email.com")
+                () -> pixService.payByCode("abc-123", "ana@email.com", "123456")
         );
+    }
+
+    @Test
+    void payByCode_DeveLancarException_QuandoSenhaIncorreta() {
+        when(paymentRequestRepository.findByCode("abc-123")).thenReturn(Optional.of(pendingRequest));
+        when(userFacade.findByEmail("ana@email.com")).thenReturn(payerInfo);
+        when(accountService.findAccountByUserEmail("ana@email.com")).thenReturn(payerAccount);
+        when(encryptionService.encrypt("senhaErrada")).thenReturn("hashDiferente");
+
+        assertThrows(
+                WrongPasswordException.class,
+                () -> pixService.payByCode("abc-123", "ana@email.com", "senhaErrada")
+        );
+
+        verify(accountService, never()).debit(any(), any(), any(), any(), any());
+        verify(accountService, never()).credit(any(), any(), any(), any(), any());
     }
 
     @Test
     void payByCode_DeveExpirarELancarException_QuandoVencida() {
         pendingRequest.setExpiresAt(Instant.now().minusSeconds(60));
         when(paymentRequestRepository.findByCode("abc-123")).thenReturn(Optional.of(pendingRequest));
+        when(userFacade.findByEmail("ana@email.com")).thenReturn(payerInfo);
+        when(accountService.findAccountByUserEmail("ana@email.com")).thenReturn(payerAccount);
+        when(encryptionService.encrypt("123456")).thenReturn("senhaCriptografada123");
 
         assertThrows(
                 PaymentRequestNotPayableException.class,
-                () -> pixService.payByCode("abc-123", "ana@email.com")
+                () -> pixService.payByCode("abc-123", "ana@email.com", "123456")
         );
 
-        // confirma que marcou como EXPIRED no banco
         verify(paymentRequestRepository).save(pendingRequest);
         assertEquals(PaymentRequestStatus.EXPIRED, pendingRequest.getStatus());
+        verify(eventPublisher).publishEvent(any(PaymentExpiredEvent.class));
     }
 
     @Test
@@ -142,5 +170,32 @@ class PixServiceTest {
         PaymentRequest result = pixService.getByCode("abc-123");
 
         assertEquals("abc-123", result.getCode());
+    }
+
+    @Test
+    void passPix_DeveProcessarTransferencia_QuandoSenhaCorreta() {
+        when(accountService.findAccountByUserEmail("ana@email.com")).thenReturn(payerAccount);
+        when(accountService.findAccountByUserEmail("loja@email.com")).thenReturn(merchantAccount);
+        when(encryptionService.encrypt("123456")).thenReturn("senhaCriptografada123");
+
+        pixService.passPix("ana@email.com", "123456", "loja@email.com", new BigDecimal("50.00"), "Compra de produto");
+
+        verify(accountService).debit(payerAccount, new BigDecimal("50.00"), "Transação PIX", "Compra de produto", TransactionType.PAYMENT);
+        verify(accountService).credit(merchantAccount, new BigDecimal("50.00"), "Transação PIX", "Compra de produto", TransactionType.PAYMENT);
+    }
+
+    @Test
+    void passPix_DeveLancarException_QuandoSenhaIncorreta() {
+        when(accountService.findAccountByUserEmail("ana@email.com")).thenReturn(payerAccount);
+        when(accountService.findAccountByUserEmail("loja@email.com")).thenReturn(merchantAccount);
+        when(encryptionService.encrypt("senhaErrada")).thenReturn("hashDiferente");
+
+        assertThrows(
+                WrongPasswordException.class,
+                () -> pixService.passPix("ana@email.com", "senhaErrada", "loja@email.com", new BigDecimal("50.00"), "Compra de produto")
+        );
+
+        verify(accountService, never()).debit(any(), any(), any(), any(), any());
+        verify(accountService, never()).credit(any(), any(), any(), any(), any());
     }
 }

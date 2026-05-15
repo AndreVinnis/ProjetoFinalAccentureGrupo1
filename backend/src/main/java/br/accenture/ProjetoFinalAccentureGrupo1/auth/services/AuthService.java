@@ -58,6 +58,7 @@ public class AuthService {
                 saved.getEmail(),
                 saved.getCpf(),
                 saved.getBirthDate(),
+                req.accountPassword(),
                 req.phone(),
                 req.zipCode(),
                 req.state(),

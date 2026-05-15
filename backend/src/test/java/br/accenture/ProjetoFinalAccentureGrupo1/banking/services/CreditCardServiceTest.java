@@ -4,11 +4,14 @@ import br.accenture.ProjetoFinalAccentureGrupo1.auth.api.UserFacade;
 import br.accenture.ProjetoFinalAccentureGrupo1.auth.api.UserInfo;
 import br.accenture.ProjetoFinalAccentureGrupo1.auth.enums.Role;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.domain.Account;
+import br.accenture.ProjetoFinalAccentureGrupo1.banking.domain.CardPurchase;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.domain.CreditCard;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.domain.Invoice;
+import br.accenture.ProjetoFinalAccentureGrupo1.banking.dto.CardPurchaseResponse;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.dto.CardValidationResponse;
+import br.accenture.ProjetoFinalAccentureGrupo1.banking.dto.CreditCardResponse;
+import br.accenture.ProjetoFinalAccentureGrupo1.banking.dto.CreditLimitResponse;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.enums.CreditCardStatus;
-import br.accenture.ProjetoFinalAccentureGrupo1.banking.events.PaymentReceivedEvent;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.exceptions.*;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.repository.CardPurchaseRepository;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.repository.CreditCardRepository;
@@ -21,10 +24,11 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.context.ApplicationEventPublisher;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
@@ -42,7 +46,6 @@ class CreditCardServiceTest {
     @Mock private CreditCardNumberGenerator cardNumberGenerator;
     @Mock private InvoiceService invoiceService;
     @Mock private AccountService accountService;
-    @Mock private ApplicationEventPublisher eventPublisher;
     @Mock private AESEncryptionService encryptionService;
 
     @InjectMocks
@@ -57,6 +60,7 @@ class CreditCardServiceTest {
         account = Account.builder()
                 .id(1L)
                 .userId(10L)
+                .password("ENC(1234)")
                 .build();
 
         card = CreditCard.builder()
@@ -112,7 +116,7 @@ class CreditCardServiceTest {
     }
 
     @Test
-    void chargeCard_DeveCobrarEPublicarEvento_QuandoDadosValidos() {
+    void chargeCard_DeveCobrar_QuandoDadosValidos() {
         Invoice openInvoice = Invoice.builder().id(50L).build();
 
         when(creditCardRepository.findById(100L)).thenReturn(Optional.of(card));
@@ -127,6 +131,7 @@ class CreditCardServiceTest {
 
         // CardPurchase salvo
         verify(cardPurchaseRepository).save(any());
+        verify(creditCardRepository).save(card);
 
         // invoice atualizado
         verify(invoiceService).addCardPurchase(eq(openInvoice), any());
@@ -147,7 +152,6 @@ class CreditCardServiceTest {
                 () -> creditCardService.chargeCard(100L, new BigDecimal("100.00"),
                         "123", "Teste", "ORDER-1")
         );
-        verify(eventPublisher, never()).publishEvent(any());
         verify(accountService, never()).creditMerchant(any(), any(), any());
     }
 
@@ -161,7 +165,6 @@ class CreditCardServiceTest {
                 () -> creditCardService.chargeCard(100L, new BigDecimal("100.00"),
                         "123", "Teste", "ORDER-1")
         );
-        verify(eventPublisher, never()).publishEvent(any());
     }
 
     @Test
@@ -174,7 +177,6 @@ class CreditCardServiceTest {
                 () -> creditCardService.chargeCard(100L, new BigDecimal("100.00"),
                         "999", "Teste", "ORDER-1")
         );
-        verify(eventPublisher, never()).publishEvent(any());
     }
 
     @Test
@@ -196,7 +198,6 @@ class CreditCardServiceTest {
         creditCardService.blockCardByAccount(account);
 
         assertEquals(CreditCardStatus.BLOCKED, card.getStatus());
-        verify(creditCardRepository).findByAccount(account);
         verify(creditCardRepository).save(card);
     }
 
@@ -209,51 +210,124 @@ class CreditCardServiceTest {
         creditCardService.unblockCardByAccount(account);
 
         assertEquals(CreditCardStatus.ACTIVE, card.getStatus());
-        verify(creditCardRepository).findByAccount(account);
         verify(creditCardRepository).save(card);
     }
 
     @Test
-    void findMyCard_DeveRetornarDadosDoCartao_QuandoExiste() {
+    void findMyCard_DeveRetornarDadosDoCartao_QuandoExisteESenhaCorreta() {
+        when(accountService.findAccountByUserEmail("ana@email.com")).thenReturn(account);
         when(userFacade.findByEmail("ana@email.com")).thenReturn(userInfo);
         when(accountService.findByUserId(userInfo.id())).thenReturn(account);
         when(creditCardRepository.findByAccount(account)).thenReturn(Optional.of(card));
-        when(encryptionService.decrypt("ENC(1234567890123456)"))
-                .thenReturn("1234567890123456");
-        when(encryptionService.decrypt("ENC(123)")).thenReturn("123");
 
-        var response = creditCardService.findMyCard("ana@email.com");
+        when(encryptionService.decrypt(anyString())).thenReturn("1234");
+        when(encryptionService.decrypt(card.getNumberHash())).thenReturn("1234567890123456");
+        when(encryptionService.decrypt(card.getCvvHash())).thenReturn("123");
+
+        CreditCardResponse response = creditCardService.findMyCard("ana@email.com", "1234");
 
         assertNotNull(response);
         assertEquals(100L, response.id());
         assertEquals("Ana Silva", response.holderName());
+        assertEquals("1234567890123456", response.cardNumbers());
+    }
+
+    @Test
+    void findMyCard_DeveLancarException_QuandoSenhaIncorreta() {
+        when(accountService.findAccountByUserEmail("ana@email.com")).thenReturn(account);
+        when(userFacade.findByEmail("ana@email.com")).thenReturn(userInfo);
+        when(accountService.findByUserId(userInfo.id())).thenReturn(account);
+        when(creditCardRepository.findByAccount(account)).thenReturn(Optional.of(card));
+
+        when(encryptionService.decrypt(anyString())).thenReturn(anyString());
+
+        assertThrows(
+                WrongPasswordException.class,
+                () -> creditCardService.findMyCard("ana@email.com", "senhaErrada")
+        );
     }
 
     @Test
     void findMyCard_DeveLancarException_QuandoUsuarioSemCartao() {
-        when(userFacade.findByEmail("naotem@email.com")).thenReturn(
-                new UserInfo(99L, "X", "naotem@email.com", "00000000000",
-                        LocalDate.of(2000, 1, 1), Set.of(Role.CUSTOMER))
-        );
-        when(accountService.findByUserId(anyLong())).thenReturn(account);
+        when(accountService.findAccountByUserEmail("ana@email.com")).thenReturn(account);
+        when(userFacade.findByEmail("ana@email.com")).thenReturn(userInfo);
+        when(accountService.findByUserId(userInfo.id())).thenReturn(account);
         when(creditCardRepository.findByAccount(account)).thenReturn(Optional.empty());
 
         assertThrows(
                 CreditCardNotFoundException.class,
-                () -> creditCardService.findMyCard("naotem@email.com")
+                () -> creditCardService.findMyCard("ana@email.com", "1234")
         );
     }
 
     @Test
+    void findMyCardByAccount_DeveRetornarCartao_QuandoExiste() {
+        when(creditCardRepository.findByAccount(account)).thenReturn(Optional.of(card));
+
+        CreditCard foundCard = creditCardService.findMyCardByAccount(account);
+
+        assertNotNull(foundCard);
+        assertEquals(100L, foundCard.getId());
+    }
+
+    @Test
+    void findMyCardByAccount_DeveLancarException_QuandoNaoExiste() {
+        when(creditCardRepository.findByAccount(account)).thenReturn(Optional.empty());
+
+        assertThrows(
+                CreditCardNotFoundException.class,
+                () -> creditCardService.findMyCardByAccount(account)
+        );
+    }
+
+    @Test
+    void findMyLimit_DeveRetornarLimiteDoCartao() {
+        when(userFacade.findByEmail("ana@email.com")).thenReturn(userInfo);
+        when(accountService.findByUserId(userInfo.id())).thenReturn(account);
+        when(creditCardRepository.findByAccount(account)).thenReturn(Optional.of(card));
+
+        CreditLimitResponse limitResponse = creditCardService.findMyLimit("ana@email.com");
+
+        assertNotNull(limitResponse);
+        assertEquals(new BigDecimal("1000.00"), limitResponse.creditLimit());
+        assertEquals(new BigDecimal("1000.00"), limitResponse.availableLimit());
+        assertEquals(new BigDecimal("0.00"), limitResponse.usedLimit());
+    }
+
+    @Test
+    void findMyPurchases_DeveRetornarListaDeCompras() {
+        when(userFacade.findByEmail("ana@email.com")).thenReturn(userInfo);
+        when(accountService.findByUserId(userInfo.id())).thenReturn(account);
+        when(creditCardRepository.findByAccount(account)).thenReturn(Optional.of(card));
+
+        Invoice invoice = Invoice.builder().id(1L).build();
+        CardPurchase purchase = CardPurchase.builder()
+                .id(1L)
+                .card(card)
+                .invoice(invoice)
+                .amount(new BigDecimal("150.00"))
+                .description("Amazon")
+                .reference("REF-123")
+                .purchaseDate(Instant.now())
+                .build();
+
+        when(cardPurchaseRepository.findByCardIdOrderByPurchaseDateDesc(card.getId()))
+                .thenReturn(List.of(purchase));
+
+        List<CardPurchaseResponse> purchases = creditCardService.findMyPurchases("ana@email.com");
+
+        assertNotNull(purchases);
+        assertFalse(purchases.isEmpty());
+        assertEquals(1, purchases.size());
+        assertEquals("Amazon", purchases.get(0).description());
+        assertEquals(new BigDecimal("150.00"), purchases.get(0).amount());
+    }
+
+    @Test
     void validateCard_DeveRetornarCardValidationResponse_QuandoDadosValidos() {
-        when(encryptionService.encrypt("1234567890123456"))
-                .thenReturn("ENC(1234567890123456)");
-
-        when(creditCardRepository.findByNumberHash("ENC(1234567890123456)"))
-                .thenReturn(Optional.of(card));
-
-        when(encryptionService.decrypt("ENC(123)"))
-                .thenReturn("123");
+        when(encryptionService.encrypt("1234567890123456")).thenReturn("ENC(1234567890123456)");
+        when(creditCardRepository.findByNumberHash("ENC(1234567890123456)")).thenReturn(Optional.of(card));
+        when(encryptionService.decrypt("ENC(123)")).thenReturn("123");
 
         CardValidationResponse response = creditCardService.validateCard(
                 "1234567890123456",
@@ -269,11 +343,8 @@ class CreditCardServiceTest {
 
     @Test
     void validateCard_DeveLancarException_QuandoCartaoNaoExiste() {
-        when(encryptionService.encrypt("9999999999999999"))
-                .thenReturn("ENC(9999999999999999)");
-
-        when(creditCardRepository.findByNumberHash("ENC(9999999999999999)"))
-                .thenReturn(Optional.empty());
+        when(encryptionService.encrypt("9999999999999999")).thenReturn("ENC(9999999999999999)");
+        when(creditCardRepository.findByNumberHash("ENC(9999999999999999)")).thenReturn(Optional.empty());
 
         assertThrows(
                 InvalidCardException.class,
@@ -284,21 +355,13 @@ class CreditCardServiceTest {
                         2030
                 )
         );
-
-        verify(creditCardRepository)
-                .findByNumberHash("ENC(9999999999999999)");
     }
 
     @Test
     void validateCard_DeveLancarException_QuandoCvvInvalido() {
-        when(encryptionService.encrypt("1234567890123456"))
-                .thenReturn("ENC(1234567890123456)");
-
-        when(creditCardRepository.findByNumberHash("ENC(1234567890123456)"))
-                .thenReturn(Optional.of(card));
-
-        when(encryptionService.decrypt("ENC(123)"))
-                .thenReturn("123");
+        when(encryptionService.encrypt("1234567890123456")).thenReturn("ENC(1234567890123456)");
+        when(creditCardRepository.findByNumberHash("ENC(1234567890123456)")).thenReturn(Optional.of(card));
+        when(encryptionService.decrypt("ENC(123)")).thenReturn("123");
 
         assertThrows(
                 InvalidCardException.class,
@@ -313,21 +376,16 @@ class CreditCardServiceTest {
 
     @Test
     void validateCard_DeveLancarException_QuandoMesExpiracaoInvalido() {
-        when(encryptionService.encrypt("1234567890123456"))
-                .thenReturn("ENC(1234567890123456)");
-
-        when(creditCardRepository.findByNumberHash("ENC(1234567890123456)"))
-                .thenReturn(Optional.of(card));
-
-        when(encryptionService.decrypt("ENC(123)"))
-                .thenReturn("123");
+        when(encryptionService.encrypt("1234567890123456")).thenReturn("ENC(1234567890123456)");
+        when(creditCardRepository.findByNumberHash("ENC(1234567890123456)")).thenReturn(Optional.of(card));
+        when(encryptionService.decrypt("ENC(123)")).thenReturn("123");
 
         assertThrows(
                 InvalidCardException.class,
                 () -> creditCardService.validateCard(
                         "1234567890123456",
                         "123",
-                        11,
+                        11, // Mês errado
                         LocalDate.now().getYear() + 5
                 )
         );
@@ -335,14 +393,9 @@ class CreditCardServiceTest {
 
     @Test
     void validateCard_DeveLancarException_QuandoAnoExpiracaoInvalido() {
-        when(encryptionService.encrypt("1234567890123456"))
-                .thenReturn("ENC(1234567890123456)");
-
-        when(creditCardRepository.findByNumberHash("ENC(1234567890123456)"))
-                .thenReturn(Optional.of(card));
-
-        when(encryptionService.decrypt("ENC(123)"))
-                .thenReturn("123");
+        when(encryptionService.encrypt("1234567890123456")).thenReturn("ENC(1234567890123456)");
+        when(creditCardRepository.findByNumberHash("ENC(1234567890123456)")).thenReturn(Optional.of(card));
+        when(encryptionService.decrypt("ENC(123)")).thenReturn("123");
 
         assertThrows(
                 InvalidCardException.class,
@@ -350,7 +403,7 @@ class CreditCardServiceTest {
                         "1234567890123456",
                         "123",
                         12,
-                        2000
+                        2000 // Ano errado
                 )
         );
     }

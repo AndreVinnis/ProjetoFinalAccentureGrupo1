@@ -31,6 +31,7 @@ class UserRegisteredListenerTest {
                 "ana@email.com",
                 "12345678901",
                 LocalDate.of(1990, 1, 1),
+                "1234",
                 "11999999999",
                 "01001-000",
                 "SP",

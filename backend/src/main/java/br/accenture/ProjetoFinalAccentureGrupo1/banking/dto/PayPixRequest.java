@@ -5,5 +5,7 @@ import jakarta.validation.constraints.NotBlank;
 // Autor: André Vinícius Barros Macambira
 public record PayPixRequest(
         @NotBlank(message = "Código é obrigatório")
-        String code
+        String code,
+        @NotBlank(message = "A senha é obrigatória")
+        String password
 ) {}

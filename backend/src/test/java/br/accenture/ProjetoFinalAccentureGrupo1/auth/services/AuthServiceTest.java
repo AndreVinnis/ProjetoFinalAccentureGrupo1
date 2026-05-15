@@ -59,6 +59,7 @@ class AuthServiceTest {
                 "senha12345",
                 "12345678901",
                 LocalDate.of(1990, 5, 15),
+                "1234",
                 "11999999999",
                 "01310100",
                 "SP",
