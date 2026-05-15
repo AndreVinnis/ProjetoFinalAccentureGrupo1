@@ -1,0 +1,71 @@
+.cart-row {
+    color: #3a2e45;
+    background: #fbf9fe;
+    transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.cart-row:hover {
+    background: #f5f0fd;
+    border-color: #c9b8dc;
+}
+
+.cart-row span,
+.cart-row strong {
+    color: #2f124b;
+    font-weight: 600;
+}
+
+.panel>.button-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 24px;
+    padding-top: 20px;
+    border-top: 1px solid #e7def0;
+}
+
+.panel>.button-row button:not(:last-child) {
+    background: #f5f0fd;
+    color: #5b2dae;
+    border: 1px solid #d7cae7;
+    box-shadow: none;
+}
+
+.panel>.button-row button:not(:last-child):hover {
+    background: #ede4ff;
+    border-color: #cdb7ff;
+}
+
+.panel>form.inline-form {
+    display: grid;
+    grid-template-columns: 2fr 1fr auto;
+    gap: 16px;
+    align-items: center;
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px dashed #e7def0;
+}
+
+.panel>.button-row button:last-child {
+    margin-left: auto;
+    min-width: 180px;
+}
+
+.panel>form.inline-form button {
+    min-width: 180px;
+}
+
+.cart-row>*:first-child {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.cart-row>*:first-child small,
+.cart-row>*:first-child span:not(:first-child) {
+    color: #7b6d87;
+    font-size: 13px;
+    font-weight: 500;
+    margin-left: 4px;
+}

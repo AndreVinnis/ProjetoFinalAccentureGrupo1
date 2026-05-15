@@ -404,6 +404,8 @@ button:active,
 
 .link-button::before,
 .nav-list button::before,
+.nav-list a::before,
+.topbar-actions a::before,
 .ghost-button::before,
 .segmented button::before,
 .pill-tabs button::before {

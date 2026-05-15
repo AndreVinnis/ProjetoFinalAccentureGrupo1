@@ -1,40 +1,40 @@
-﻿import { isAdmin } from '../../utils/auth'
+import { NavLink } from 'react-router-dom'
+import { isAdmin } from '../../utils/auth'
 
 interface RoleNavigationProps {
-  activeView: string;
   roles: string[];
-  setActiveView: (view: string) => void;
 }
 
 type NavItem = {
-  id: string;
+  path: string;
   label: string;
 };
 
-export function RoleNavigation({ activeView, roles, setActiveView }: RoleNavigationProps) {
+export function RoleNavigation({ roles }: RoleNavigationProps) {
   const admin = isAdmin(roles);
 
   const items: NavItem[] = admin
     ? ([
-        { id: 'adminHome', label: 'Painel admin' },
-        roles.includes('ECOMMERCE_ADMIN') ? { id: 'adminEcommerce', label: 'Gestao ecommerce' } : null,
-        roles.includes('BANKING_ADMIN') ? { id: 'adminBank', label: 'Gestao banco' } : null,
+        { path: '/admin', label: 'Painel admin' },
+        roles.includes('ECOMMERCE_ADMIN') ? { path: '/admin/ecommerce', label: 'Gestao ecommerce' } : null,
+        roles.includes('BANKING_ADMIN') ? { path: '/admin/banco', label: 'Gestao banco' } : null,
       ].filter(Boolean) as NavItem[])
     : [
-        { id: 'storefront', label: 'Loja' },
-        { id: 'customerBank', label: 'Banco' },
+        { path: '/banco', label: 'Banco' },
+        { path: '/loja', label: 'Loja' },
       ];
 
   return (
     <nav className="nav-list">
       {items.map((item) => (
-        <button 
-          key={item.id} 
-          className={activeView === item.id ? 'active' : ''} 
-          onClick={() => setActiveView(item.id)}
+        <NavLink
+          key={item.path}
+          to={item.path}
+          end={item.path === '/admin'}
+          className={({ isActive }) => (isActive ? 'active' : '')}
         >
           {item.label}
-        </button>
+        </NavLink>
       ))}
     </nav>
   )

@@ -1,3 +1,4 @@
+import '../../../styles/ecommerce/cart.css'
 import { useCallback, useEffect, useState } from 'react'
 import { Panel } from '../../../components/ui/Panel'
 import { CartView } from '../components/CartView'

@@ -11,8 +11,6 @@ export function Storefront({ api }: { api: ApiClient }) {
   const [products, setProducts] = useState<Product[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [filters, setFilters] = useState({ categoryName: '', maxPrice: '' })
-  const [categoryLookup, setCategoryLookup] = useState('')
-  const [productLookup, setProductLookup] = useState('')
 
     const refresh = useCallback(async () => {
         const query = new URLSearchParams()
@@ -52,11 +50,6 @@ export function Storefront({ api }: { api: ApiClient }) {
     setCategories(data.categories)
     }
 
-  async function lookupResources() {
-    if (categoryLookup) await api.get(`/ecommerce/categories/${categoryLookup}`)
-    if (productLookup) await api.get(`/ecommerce/products/${productLookup}`)
-  }
-
   return (
     <div className="dashboard-grid ecommerce">
       <Panel title="Vitrine">
@@ -66,7 +59,6 @@ export function Storefront({ api }: { api: ApiClient }) {
             {categories.map((category) => <option key={category.id} value={category.name}>{category.name}</option>)}
           </select>
           <input placeholder="Preco maximo" value={filters.maxPrice} onChange={(event) => setFilters({ ...filters, maxPrice: event.target.value })} type="number" />
-          <button>Filtrar</button>
         </form>
         <div className="product-grid">
           {products.map((product) => (
@@ -82,14 +74,6 @@ export function Storefront({ api }: { api: ApiClient }) {
             </article>
           ))}
         </div>
-      </Panel>
-
-      <Panel title="Consultas diretas">
-        <form className="inline-form" onSubmit={(event) => { event.preventDefault(); lookupResources() }}>
-          <input placeholder="Categoria por identificador" value={categoryLookup} onChange={(event) => setCategoryLookup(event.target.value)} />
-          <input placeholder="Produto por ID" value={productLookup} onChange={(event) => setProductLookup(event.target.value)} />
-          <button>Consultar</button>
-        </form>
       </Panel>
     </div>
   )
