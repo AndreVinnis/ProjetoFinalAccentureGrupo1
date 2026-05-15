@@ -220,7 +220,7 @@ class CreditCardServiceTest {
         when(accountService.findByUserId(userInfo.id())).thenReturn(account);
         when(creditCardRepository.findByAccount(account)).thenReturn(Optional.of(card));
 
-        when(encryptionService.encrypt("1234")).thenReturn("ENC(1234)");
+        when(encryptionService.decrypt(anyString())).thenReturn("1234");
         when(encryptionService.decrypt(card.getNumberHash())).thenReturn("1234567890123456");
         when(encryptionService.decrypt(card.getCvvHash())).thenReturn("123");
 
@@ -239,7 +239,7 @@ class CreditCardServiceTest {
         when(accountService.findByUserId(userInfo.id())).thenReturn(account);
         when(creditCardRepository.findByAccount(account)).thenReturn(Optional.of(card));
 
-        when(encryptionService.encrypt("senhaErrada")).thenReturn("ENC(ERRADA)");
+        when(encryptionService.decrypt(anyString())).thenReturn(anyString());
 
         assertThrows(
                 WrongPasswordException.class,
