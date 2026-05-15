@@ -18,23 +18,23 @@ export const initialRegister = {
   complement: '',
 }
 
-export function viewTitle(view) {
+export function titleForPath(pathname) {
   const titles = {
-    customerHome: 'Feed principal',
-    customerBank: 'Banco',
-    customerEcommerce: 'Loja',
-    customerCart: 'Carrinho',
-    customerInfo: 'Minhas informações',
-    adminHome: 'Painel admin',
-    adminEcommerce: 'Gestao ecommerce',
-    adminBank: 'Gestao banco',
+    '/banco': 'Banco',
+    '/loja': 'Loja',
+    '/carrinho': 'Carrinho',
+    '/perfil': 'Minhas informações',
+    '/pedidos': 'Meus pedidos',
+    '/admin': 'Painel admin',
+    '/admin/ecommerce': 'Gestao ecommerce',
+    '/admin/banco': 'Gestao banco',
   }
-  return titles[view]
+  return titles[pathname] || 'Plataforma ACC'
 }
 
-export function defaultViewForRoles(roles) {
-  if (isAdmin(roles)) return 'adminHome'
-  return 'customerHome'
+export function defaultPathForRoles(roles) {
+  if (isAdmin(roles)) return '/admin'
+  return '/banco'
 }
 
 export function isAdmin(roles) {

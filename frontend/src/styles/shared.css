@@ -288,6 +288,8 @@ textarea {
 }
 
 button,
+.nav-list a,
+.topbar-actions a,
 .primary-button {
   min-height: 40px;
   border-radius: 7px;
@@ -315,6 +317,7 @@ button::before,
 }
 
 button:hover,
+.topbar-actions a:hover,
 .primary-button:hover {
   background: #4a2080;
   border-color: rgba(199, 164, 255, 0.42);
@@ -441,6 +444,8 @@ button:active,
 
 .link-button::before,
 .nav-list button::before,
+.nav-list a::before,
+.topbar-actions a::before,
 .ghost-button::before,
 .segmented button::before,
 .pill-tabs button::before {

@@ -1,11 +1,14 @@
 ﻿/* eslint-disable @typescript-eslint/ban-ts-comment */
 // @ts-nocheck
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { LoadingScreen } from '../../components/layout/LoadingScreen'
-import { authErrorMessage, hasRequiredRegisterFields, initialRegister, isValidCpf, wait } from '../../utils/auth'
+import { authErrorMessage, defaultPathForRoles, hasRequiredRegisterFields, initialRegister, isValidCpf, wait } from '../../utils/auth'
 import { digitsOnly, formatCep, formatCpf } from '../../utils/format'
 
-export function AuthPanel({ api, mode, setMode, setSession, setToast }) {
+export function AuthPanel({ api, setSession, setToast }) {
+  const navigate = useNavigate()
+  const [mode, setMode] = useState('login')
   const [login, setLogin] = useState({ email: '', password: '' })
   const [register, setRegister] = useState(initialRegister)
   const [loadingCep, setLoadingCep] = useState(false)
@@ -31,6 +34,9 @@ export function AuthPanel({ api, mode, setMode, setSession, setToast }) {
       setAuthLoading({ title: 'Validando acesso', detail: 'Conferindo suas credenciais com seguranca' })
       await wait(1500)
       setSession(response)
+
+      navigate(defaultPathForRoles(response.roles || []), { replace: true })
+
       setToast('Acesso autorizado.')
     } catch (error) {
       setAuthMessage({ type: 'error', text: authErrorMessage(error, 'login') })
@@ -67,6 +73,9 @@ export function AuthPanel({ api, mode, setMode, setSession, setToast }) {
       setAuthLoading({ title: 'Criando sua conta ACC', detail: 'Abrindo banco, perfil ecommerce e endereco de entrega' })
       await wait(1500)
       setSession(response)
+
+      navigate(defaultPathForRoles(response.roles || []), { replace: true })
+
       setToast('Cadastro criado com conta ACC Bank e perfil ecommerce.')
     } catch (error) {
       setAuthMessage({ type: 'error', text: authErrorMessage(error, 'register') })
