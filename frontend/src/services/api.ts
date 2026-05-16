@@ -4,6 +4,7 @@ interface ApiRequestOptions {
   method?: string
   headers?: Record<string, string>
   body?: unknown
+  silent?: boolean
 }
 
 interface ApiErrorPayload {
@@ -12,7 +13,7 @@ interface ApiErrorPayload {
 }
 
 export interface Api {
-  get<T = unknown>(path: string): Promise<T>
+  get<T = unknown>(path: string, options?: ApiRequestOptions): Promise<T>
   post<T = unknown>(path: string, body?: unknown): Promise<T>
   put<T = unknown>(path: string, body?: unknown): Promise<T>
   patch<T = unknown>(path: string, body?: unknown): Promise<T>
@@ -38,7 +39,8 @@ export class ApiError extends Error {
 
 export function createApi(
   token: string | null,
-  setToast: (message: string) => void
+  setToast: (message: string) => void,
+  onUnauthorized?: () => void
 ): Api {
 
   async function request<T>(
@@ -87,7 +89,13 @@ export function createApi(
         text ||
         `Erro ${response.status}`
 
-      setToast(message)
+      if (response.status === 401 && token) {
+        onUnauthorized?.()
+      }
+
+      if (!options.silent) {
+        setToast(message)
+      }
 
       throw new ApiError(
         message,
@@ -100,7 +108,7 @@ export function createApi(
   }
 
   return {
-    get: (path) => request(path),
+    get: (path, options) => request(path, options),
 
     post: (path, body) =>
       request(path, {

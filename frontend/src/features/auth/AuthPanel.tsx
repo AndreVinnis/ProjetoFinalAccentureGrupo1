@@ -64,6 +64,11 @@ export function AuthPanel({ api, setSession, setToast }) {
       return
     }
 
+    if (!/^\d{4}$/.test(register.accountPassword)) {
+      setAuthMessage({ type: 'error', text: 'A senha da conta ACC deve ter exatamente 4 digitos.' })
+      return
+    }
+
     try {
       const response = await api.post('/auth/register', {
         ...register,
@@ -160,6 +165,7 @@ export function AuthPanel({ api, setSession, setToast }) {
               <label>Nome<input value={register.name} onChange={(event) => setRegister({ ...register, name: event.target.value })} placeholder="Nome completo" required /></label>
               <label>E-mail<input value={register.email} onChange={(event) => setRegister({ ...register, email: event.target.value })} type="email" placeholder="voce@email.com" required /></label>
               <label>Senha<input value={register.password} onChange={(event) => setRegister({ ...register, password: event.target.value })} type="password" minLength="8" placeholder="Minimo 8 caracteres" required /></label>
+              <label>Senha da conta ACC<input value={register.accountPassword} onChange={(event) => setRegister({ ...register, accountPassword: digitsOnly(event.target.value).slice(0, 4) })} type="password" inputMode="numeric" maxLength="4" placeholder="4 digitos" required /></label>
               <div className="two-col">
                 <label>CPF<input value={register.cpf} onChange={(event) => setRegister({ ...register, cpf: formatCpf(event.target.value) })} inputMode="numeric" maxLength="14" placeholder="000.000.000-00" required /></label>
                 <label>Nascimento<input value={register.birthDate} onChange={(event) => setRegister({ ...register, birthDate: event.target.value })} type="date" required /></label>

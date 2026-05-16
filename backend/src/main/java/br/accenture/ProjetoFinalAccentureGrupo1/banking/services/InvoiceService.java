@@ -52,8 +52,7 @@ public class InvoiceService {
         Account account = accountService.findByUserId(user.id());
         CreditCard card = creditCardRepository.findByAccount(account).orElseThrow(
                 () -> new CardNotFoundException(0L));
-        Invoice invoice = invoiceRepository.findByCardIdAndStatus(card.getId(), InvoiceStatus.OPEN).orElseThrow(()
-            -> new InvoiceNotFoundException(0L));
+        Invoice invoice = getOrCreateOpenInvoice(card);
         return  toInvoiceResponse(invoice);
     }
 

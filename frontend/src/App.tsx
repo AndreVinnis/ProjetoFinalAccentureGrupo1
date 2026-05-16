@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/ban-ts-comment */
 // @ts-nocheck
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Navigate, NavLink, Outlet, Route, Routes, useLocation } from 'react-router-dom'
 import './App.css'
 import { LoadingScreen } from './components/layout/LoadingScreen'
@@ -25,7 +25,12 @@ function App() {
   const [bootLoading, setBootLoading] = useState(true)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
 
-  const api = useMemo(() => createApi(session?.token, setToast), [session?.token])
+  const clearSession = useCallback(() => {
+    localStorage.removeItem('acc_session')
+    setSession(null)
+  }, [])
+
+  const api = useMemo(() => createApi(session?.token, setToast, clearSession), [session?.token, clearSession])
   const roles = useMemo(() => session?.roles || [], [session?.roles])
   const admin = isAdmin(roles)
   const customer = roles.includes('CUSTOMER')
@@ -47,8 +52,7 @@ function App() {
   }, [toastMessage])
 
   function handleLogout() {
-    localStorage.removeItem('acc_session')
-    setSession(null)
+    clearSession()
   }
 
   function handleAuthMouseMove(event) {
@@ -68,6 +72,11 @@ function App() {
 
   function RequireAdmin({ children }) {
     if (!admin) return <Navigate to="/banco" replace />
+    return children
+  }
+
+  function RequireCustomer({ children }) {
+    if (!customer) return <Navigate to={admin ? '/admin' : '/login'} replace />
     return children
   }
 
@@ -182,7 +191,14 @@ function App() {
             </RequireAuth>
           }
         >
-          <Route path="/banco" element={<CustomerBank api={api} />} />
+          <Route
+            path="/banco"
+            element={
+              <RequireCustomer>
+                <CustomerBank api={api} />
+              </RequireCustomer>
+            }
+          />
           <Route path="/loja" element={<Storefront api={api} />} />
           <Route path="/carrinho" element={<Cart api={api} />} />
           <Route path="/perfil" element={<Profile api={api} />} />
