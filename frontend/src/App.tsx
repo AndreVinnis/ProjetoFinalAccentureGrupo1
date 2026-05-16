@@ -14,6 +14,7 @@ import { Profile } from './features/ecommerce/pages/Profile'
 import { Storefront } from './features/ecommerce/pages/Storefront'
 import { createApi } from './services/api'
 import { defaultPathForRoles, isAdmin, titleForPath } from './utils/auth'
+import { AdminEcommerce } from './features/ecommerce/pages/admin/AdminEcommerce'
 
 function App() {
   const [session, setSession] = useState(() => {
@@ -211,8 +212,8 @@ function App() {
             element={
               <RequireAdmin>
                 <div className="dashboard-grid">
-                  <p>Gestao ecommerce em construcao.</p>
-                </div>
+                  <AdminEcommerce api={api} />
+              </div>
               </RequireAdmin>
             }
           />

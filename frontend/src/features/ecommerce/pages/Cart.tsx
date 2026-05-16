@@ -104,8 +104,14 @@ export function Cart({ api }: { api: ApiClient }) {
           onRemove={removeCartItem} 
         />
         <div className="button-row">
-          <button onClick={() => handleCartAction('close')}>Fechar carrinho</button>
-          <button onClick={() => handleCartAction('open')}>Reabrir</button>
+          {/* Botão dinâmico que alterna entre Fechar e Reabrir */}
+{(cart as any)?.status === 'RESERVED' ? (
+  <button onClick={() => handleCartAction('open')}>Reabrir carrinho</button>
+) : (
+  <button onClick={() => handleCartAction('close')}>Fechar carrinho</button>
+)}
+<button onClick={() => handleCartAction('clear')}>Limpar</button>
+<button onClick={checkoutPix}>Checkout Pix</button>
           <button onClick={() => handleCartAction('clear')}>Limpar</button>
           <button onClick={checkoutPix}>Checkout Pix</button>
         </div>

@@ -48,6 +48,8 @@ export function Storefront({ api }: { api: ApiClient }) {
 
     setProducts(data.products)
     setCategories(data.categories)
+
+    alert('Produto adicionado ao carrinho com sucesso!')
     }
 
   return (
