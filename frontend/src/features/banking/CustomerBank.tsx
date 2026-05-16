@@ -5,7 +5,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { BankMetric } from '../../components/ui/BankMetric'
 import { Table } from '../../components/ui/Table'
 import { settled } from '../../utils/async'
-import { date, formatCardNumber, maskCard, money } from '../../utils/format'
+import { date, digitsOnly, formatCardNumber, maskCard, money } from '../../utils/format'
 import { downloadStatementPdf } from './statementPdf'
 
 function limitProgress(limit) {
@@ -27,7 +27,10 @@ function normalizeCardPayload(card) {
 export function CustomerBank({ api }) {
   const [data, setData] = useState({})
   const [deposit, setDeposit] = useState({ amount: '', description: '' })
-  const [pix, setPix] = useState('')
+  const [pix, setPix] = useState({ code: '', password: '' })
+  const [pixTransfer, setPixTransfer] = useState({ recipientEmail: '', amount: '', description: '', password: '' })
+  const [pixMode, setPixMode] = useState('payment')
+  const [cardPassword, setCardPassword] = useState('')
   const [invoicePay, setInvoicePay] = useState({ id: '', amount: '' })
   const [activeBankTab, setActiveBankTab] = useState('transactions')
   const [cardRevealed, setCardRevealed] = useState(false)
@@ -36,26 +39,26 @@ export function CustomerBank({ api }) {
   const [pixFeedback, setPixFeedback] = useState({ status: 'idle', message: '' })
 
   const refresh = useCallback(async () => {
-    const [account, balance, card, limit, purchases, invoices, currentInvoice, transactions] = await Promise.allSettled([
-      api.get('/banking/accounts/me'),
-      api.get('/banking/accounts/me/balance'),
-      api.get('/banking/cards/me'),
-      api.get('/banking/cards/me/limit'),
-      api.get('/banking/cards/me/purchases'),
-      api.get('/banking/invoices'),
-      api.get('/banking/invoices/current'),
-      api.get('/banking/accounts/me/transactions'),
+    const silent = { silent: true }
+    const [account, balance, limit, purchases, invoices, currentInvoice, transactions] = await Promise.allSettled([
+      api.get('/banking/accounts/me', silent),
+      api.get('/banking/accounts/me/balance', silent),
+      api.get('/banking/cards/me/limit', silent),
+      api.get('/banking/cards/me/purchases', silent),
+      api.get('/banking/invoices', silent),
+      api.get('/banking/invoices/current', silent),
+      api.get('/banking/accounts/me/transactions', silent),
     ])
-    setData({
+    setData((current) => ({
+      ...current,
       account: settled(account),
       balance: settled(balance),
-      card: normalizeCardPayload(settled(card)),
       limit: settled(limit),
       purchases: settled(purchases, []),
       invoices: settled(invoices, []),
       currentInvoice: settled(currentInvoice),
       transactions: settled(transactions, []),
-    })
+    }))
   }, [api])
 
   useEffect(() => {
@@ -75,13 +78,32 @@ export function CustomerBank({ api }) {
     setPixFeedback({ status: 'loading', message: '' })
 
     try {
-      await api.get(`/banking/pix/${pix}`)
-      await api.post('/banking/pix/pay', { code: pix })
-      setPix('')
-      setPixFeedback({ status: 'success', message: '' })
+      await api.get(`/banking/pix/${pix.code}`)
+      await api.post('/banking/pix/pay', { code: pix.code, password: pix.password })
+      setPix({ code: '', password: '' })
+      setPixFeedback({ status: 'success', message: 'Pix pago com sucesso pelo ACC Bank.' })
       refresh()
     } catch {
-      setPixFeedback({ status: 'error', message: 'Chave Pix errada.' })
+      setPixFeedback({ status: 'error', message: 'Codigo Pix ou senha da conta incorretos.' })
+    }
+  }
+
+  async function transferPix(event) {
+    event.preventDefault()
+    setPixFeedback({ status: 'loading', message: '' })
+
+    try {
+      await api.post('/banking/pix/transfer', {
+        recipientEmail: pixTransfer.recipientEmail,
+        amount: Number(pixTransfer.amount),
+        description: pixTransfer.description,
+        password: pixTransfer.password,
+      })
+      setPixTransfer({ recipientEmail: '', amount: '', description: '', password: '' })
+      setPixFeedback({ status: 'success', message: 'Transferencia Pix enviada com sucesso.' })
+      refresh()
+    } catch {
+      setPixFeedback({ status: 'error', message: 'Nao foi possivel concluir o Pix. Confira os dados e a senha ACC.' })
     }
   }
 
@@ -102,14 +124,23 @@ export function CustomerBank({ api }) {
     if (!cardRevealed) {
       setCardDetailsError('')
 
-      try {
-        const card = await api.get('/banking/cards/me')
-        setData((current) => ({
-          ...current,
-          card: normalizeCardPayload(card),
-        }))
-      } catch {
-        setCardDetailsError('Nao foi possivel carregar os dados do cartao.')
+      if (!hasCardDetails) {
+        if (!/^\d{4}$/.test(cardPassword)) {
+          setCardDetailsError('Digite a senha da conta ACC com 4 digitos.')
+          setCardRevealed(true)
+          return
+        }
+
+        try {
+          const card = await api.post('/banking/cards/me', { password: cardPassword })
+          setData((current) => ({
+            ...current,
+            card: normalizeCardPayload(card),
+          }))
+          setCardPassword('')
+        } catch {
+          setCardDetailsError('Senha invalida ou dados do cartao indisponiveis.')
+        }
       }
     }
 
@@ -119,6 +150,7 @@ export function CustomerBank({ api }) {
   function openActionModal(action) {
     setActiveActionModal(action)
     setPixFeedback({ status: 'idle', message: '' })
+    if (action === 'pix') setPixMode('payment')
   }
 
   function closeActionModal() {
@@ -151,7 +183,7 @@ export function CustomerBank({ api }) {
       </section>
       <section className="bank-shortcuts" aria-label="Acoes rapidas do banco">
         <button className="shortcut-deposit" onClick={() => openActionModal('deposit')}>Depositar</button>
-        <button className="shortcut-pix" onClick={() => openActionModal('pix')}>Pagar Pix</button>
+        <button className="shortcut-pix" onClick={() => openActionModal('pix')}>PIX</button>
         <button className="shortcut-invoice" onClick={() => openActionModal('invoice')}>Pagar fatura</button>
         <button className="shortcut-statement" onClick={handleStatementDownload}>Extrato</button>
       </section>
@@ -188,7 +220,6 @@ export function CustomerBank({ api }) {
             ) : (
               <div className="card-details-empty">
                 <strong>{cardDetailsError || 'Dados do cartao indisponiveis'}</strong>
-                <small>O endpoint /banking/cards/me nao retornou numero, CVV e validade para este usuario.</small>
               </div>
             )}
             <em>Clique novamente para ocultar</em>
@@ -198,6 +229,17 @@ export function CustomerBank({ api }) {
           <span>Cartao de credito</span>
           <strong>{money(data.currentInvoice?.totalAmount)}</strong>
           <small>Fatura atual - limite disponivel {money(data.limit?.availableLimit)}</small>
+          {!hasCardDetails ? (
+            <input
+              className="card-password-input"
+              placeholder="Senha ACC de 4 digitos"
+              value={cardPassword}
+              onChange={(event) => setCardPassword(digitsOnly(event.target.value).slice(0, 4))}
+              type="password"
+              inputMode="numeric"
+              maxLength="4"
+            />
+          ) : null}
           <button onClick={() => setActiveBankTab('purchases')}>Ver compras</button>
         </div>
       </section>
@@ -216,30 +258,96 @@ export function CustomerBank({ api }) {
             ) : null}
 
             {activeActionModal === 'pix' ? (
-              <form onSubmit={payPix} className="action-card modal-form">
+              <form onSubmit={pixMode === 'payment' ? payPix : transferPix} className="action-card modal-form">
                 {pixFeedback.status === 'success' ? (
                   <div className="pix-success-state" role="status">
                     <span className="pix-success-check" aria-hidden="true" />
-                    <strong>Pix pago</strong>
-                    <small>Pagamento efetuado com sucesso pelo ACC Bank.</small>
+                    <strong>Pix concluido</strong>
+                    <small>{pixFeedback.message}</small>
                     <button type="button" onClick={closeActionModal}>Fechar</button>
                   </div>
                 ) : (
                   <>
-                    <div><span>Pix ecommerce</span><strong>Pagar pedido</strong></div>
-                    <input
-                      autoFocus
-                      className={pixFeedback.status === 'error' ? 'input-error' : ''}
-                      placeholder="Codigo Pix gerado na loja"
-                      value={pix}
-                      onChange={(event) => {
-                        setPix(event.target.value)
-                        if (pixFeedback.status === 'error') setPixFeedback({ status: 'idle', message: '' })
-                      }}
-                      required
-                    />
+                    <div><span>PIX</span><strong>{pixMode === 'payment' ? 'Pagar codigo Pix' : 'Transferir saldo'}</strong></div>
+                    <div className="pix-mode-tabs" aria-label="Escolher tipo de Pix">
+                      <button type="button" className={pixMode === 'payment' ? 'active' : ''} onClick={() => { setPixMode('payment'); setPixFeedback({ status: 'idle', message: '' }) }}>Pagar codigo</button>
+                      <button type="button" className={pixMode === 'transfer' ? 'active' : ''} onClick={() => { setPixMode('transfer'); setPixFeedback({ status: 'idle', message: '' }) }}>Transferencia</button>
+                    </div>
+                    {pixMode === 'payment' ? (
+                      <>
+                        <input
+                          autoFocus
+                          className={pixFeedback.status === 'error' ? 'input-error' : ''}
+                          placeholder="Codigo Pix gerado na loja"
+                          value={pix.code}
+                          onChange={(event) => {
+                            setPix({ ...pix, code: event.target.value })
+                            if (pixFeedback.status === 'error') setPixFeedback({ status: 'idle', message: '' })
+                          }}
+                          required
+                        />
+                        <input
+                          className={pixFeedback.status === 'error' ? 'input-error' : ''}
+                          placeholder="Senha ACC de 4 digitos"
+                          value={pix.password}
+                          onChange={(event) => {
+                            setPix({ ...pix, password: digitsOnly(event.target.value).slice(0, 4) })
+                            if (pixFeedback.status === 'error') setPixFeedback({ status: 'idle', message: '' })
+                          }}
+                          type="password"
+                          inputMode="numeric"
+                          maxLength="4"
+                          required
+                        />
+                      </>
+                    ) : (
+                      <>
+                        <input
+                          autoFocus
+                          className={pixFeedback.status === 'error' ? 'input-error' : ''}
+                          placeholder="E-mail do destinatario"
+                          value={pixTransfer.recipientEmail}
+                          onChange={(event) => {
+                            setPixTransfer({ ...pixTransfer, recipientEmail: event.target.value })
+                            if (pixFeedback.status === 'error') setPixFeedback({ status: 'idle', message: '' })
+                          }}
+                          type="email"
+                          required
+                        />
+                        <input
+                          className={pixFeedback.status === 'error' ? 'input-error' : ''}
+                          placeholder="Valor da transferencia"
+                          value={pixTransfer.amount}
+                          onChange={(event) => {
+                            setPixTransfer({ ...pixTransfer, amount: event.target.value })
+                            if (pixFeedback.status === 'error') setPixFeedback({ status: 'idle', message: '' })
+                          }}
+                          type="number"
+                          step="0.01"
+                          required
+                        />
+                        <input
+                          placeholder="Descricao opcional"
+                          value={pixTransfer.description}
+                          onChange={(event) => setPixTransfer({ ...pixTransfer, description: event.target.value })}
+                        />
+                        <input
+                          className={pixFeedback.status === 'error' ? 'input-error' : ''}
+                          placeholder="Senha ACC de 4 digitos"
+                          value={pixTransfer.password}
+                          onChange={(event) => {
+                            setPixTransfer({ ...pixTransfer, password: digitsOnly(event.target.value).slice(0, 4) })
+                            if (pixFeedback.status === 'error') setPixFeedback({ status: 'idle', message: '' })
+                          }}
+                          type="password"
+                          inputMode="numeric"
+                          maxLength="4"
+                          required
+                        />
+                      </>
+                    )}
                     {pixFeedback.status === 'error' ? <small className="field-error-message">{pixFeedback.message}</small> : null}
-                    <button disabled={pixFeedback.status === 'loading'}>{pixFeedback.status === 'loading' ? 'Processando Pix...' : 'Pagar com saldo'}</button>
+                    <button disabled={pixFeedback.status === 'loading'}>{pixFeedback.status === 'loading' ? 'Processando Pix...' : pixMode === 'payment' ? 'Pagar codigo' : 'Transferir agora'}</button>
                   </>
                 )}
               </form>

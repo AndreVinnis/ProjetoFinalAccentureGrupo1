@@ -24,7 +24,7 @@ public class CreditCardController {
 
     private final CreditCardService creditCardService;
 
-    @GetMapping("/me")
+    @PostMapping("/me")
     @PreAuthorize("hasRole('CUSTOMER')")
     public ResponseEntity<CreditCardResponse> findMyCard(
             @AuthenticationPrincipal UserDetails userDetails,
