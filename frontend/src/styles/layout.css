@@ -383,6 +383,42 @@ button,
   transform: translateY(-1px);
 }
 
+.topbar-actions a.cart-pulse {
+  animation: cartTopbarPulse 0.72s ease-in-out 2;
+}
+
+.topbar-actions a.cart-pulse .topbar-action-icon {
+  animation: cartIconBlink 0.36s ease-in-out 4;
+}
+
+@keyframes cartTopbarPulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 rgba(139, 63, 252, 0);
+  }
+
+  50% {
+    color: #fff;
+    border-color: rgba(226, 206, 255, 0.62);
+    background:
+      radial-gradient(circle at 26% 20%, rgba(255, 255, 255, 0.18), transparent 35%),
+      linear-gradient(135deg, #7f3ff0, #5520a1);
+    box-shadow: 0 0 0 5px rgba(139, 63, 252, 0.14), 0 14px 30px rgba(68, 28, 125, 0.38);
+  }
+}
+
+@keyframes cartIconBlink {
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+  }
+
+  50% {
+    background: rgba(255, 255, 255, 0.24);
+    transform: translateY(-2px) scale(1.12);
+  }
+}
+
 .workspace > .topbar h1 {
   color: #f7efff;
 }

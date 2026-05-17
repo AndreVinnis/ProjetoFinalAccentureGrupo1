@@ -121,6 +121,18 @@ function App() {
 
   function AppShell() {
     const location = useLocation()
+    const [cartPulse, setCartPulse] = useState(false)
+
+    useEffect(() => {
+      function handleCartAdded() {
+        setCartPulse(true)
+        window.setTimeout(() => setCartPulse(false), 1200)
+      }
+
+      window.addEventListener('acc-cart-added', handleCartAdded)
+      return () => window.removeEventListener('acc-cart-added', handleCartAdded)
+    }, [])
+
     return (
       <main className={`app-shell ${sidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
         <aside className="sidebar">
@@ -161,7 +173,7 @@ function App() {
                   <TopbarIcon name="store" />
                   <span>Vitrine</span>
                 </NavLink>
-                <NavLink to="/carrinho" className={({ isActive }) => (isActive ? 'active' : '')}>
+                <NavLink to="/carrinho" className={({ isActive }) => [isActive ? 'active' : '', cartPulse ? 'cart-pulse' : ''].filter(Boolean).join(' ')}>
                   <TopbarIcon name="cart" />
                   <span>Sacola</span>
                 </NavLink>

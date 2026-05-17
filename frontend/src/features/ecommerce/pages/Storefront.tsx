@@ -11,6 +11,8 @@ export function Storefront({ api }: { api: ApiClient }) {
   const [products, setProducts] = useState<Product[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [filters, setFilters] = useState({ categoryName: '', maxPrice: '' })
+  const [addingProductId, setAddingProductId] = useState<number | null>(null)
+  const [addedProductId, setAddedProductId] = useState<number | null>(null)
 
     const refresh = useCallback(async () => {
         const query = new URLSearchParams()
@@ -38,18 +40,28 @@ export function Storefront({ api }: { api: ApiClient }) {
 
     void load()}, [refresh])
 
-    async function addToCart(productId: number) 
-        {await api.post('/ecommerce/cart/me/items', {
-        productId,
-        quantity: 1
-    })
+    async function addToCart(productId: number) {
+      setAddingProductId(productId)
 
-    const data = await refresh()
+      try {
+        await api.post('/ecommerce/cart/me/items', {
+          productId,
+          quantity: 1
+        })
 
-    setProducts(data.products)
-    setCategories(data.categories)
+        const data = await refresh()
 
-    alert('Produto adicionado ao carrinho com sucesso!')
+        setProducts(data.products)
+        setCategories(data.categories)
+        setAddedProductId(productId)
+        window.dispatchEvent(new CustomEvent('acc-cart-added'))
+
+        window.setTimeout(() => {
+          setAddedProductId((current) => (current === productId ? null : current))
+        }, 1400)
+      } finally {
+        setAddingProductId(null)
+      }
     }
 
   return (
@@ -72,7 +84,14 @@ export function Storefront({ api }: { api: ApiClient }) {
               <h3>{product.name}</h3>
               <p>{product.description}</p>
               <strong>{money(product.price)}</strong>
-              <button onClick={() => addToCart(product.id)}>Adicionar</button>
+              <button
+                className={`product-add-button ${addedProductId === product.id ? 'added' : ''}`}
+                onClick={() => addToCart(product.id)}
+                disabled={addingProductId === product.id}
+              >
+                <span className="product-add-icon" aria-hidden="true" />
+                {addingProductId === product.id ? 'Adicionando...' : addedProductId === product.id ? 'Na sacola' : 'Adicionar'}
+              </button>
             </article>
           ))}
         </div>
