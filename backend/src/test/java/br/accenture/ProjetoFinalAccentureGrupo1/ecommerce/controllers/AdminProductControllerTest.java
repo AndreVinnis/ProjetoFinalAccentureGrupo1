@@ -70,7 +70,7 @@ class AdminProductControllerTest {
                 true,
                 Instant.parse("2026-01-01T00:00:00Z"),
                 1L,
-                "EletrÃ´nicos"
+                "Eletrônicos"
         );
 
         when(productService.listProductsForAdmin(PageRequest.of(0, 20)))

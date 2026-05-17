@@ -137,7 +137,7 @@ class ProductServiceTest {
     }
 
     @Test
-    @DisplayName("listProductsForAdmin retorna produtos com estoque total, reservado, disponÃ­vel e status")
+    @DisplayName("listProductsForAdmin retorna produtos com estoque total, reservado, disponivel e status")
     void listProductsForAdmin_success() {
         Pageable pageable = PageRequest.of(0, 10);
         product.setReservedStock(3);
@@ -153,7 +153,7 @@ class ProductServiceTest {
         assertThat(first.reservedStock()).isEqualTo(3);
         assertThat(first.availableStock()).isEqualTo(7);
         assertThat(first.active()).isTrue();
-        assertThat(first.categoryName()).isEqualTo("EletrÃ´nicos");
+        assertThat(first.categoryName()).isEqualTo("Eletrônicos");
     }
 
     @Test
