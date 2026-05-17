@@ -4,10 +4,25 @@ import { useNavigate } from 'react-router-dom'
 import { Panel } from '../../../components/ui/Panel'
 import { List } from '../../../components/ui/List'
 import { settled } from '../../../utils/async'
+import { date, digitsOnly, formatCardNumber } from '../../../utils/format'
 import type { ApiClient } from '../../../services/api'
 import type { Order } from '../types/order'
 import type { SavedCard } from '../types/savedCard'
 import type { Customer } from '../types/customer'
+
+function sessionName() {
+  try {
+    const session = JSON.parse(localStorage.getItem('acc_session') || 'null')
+    return session?.name || 'Cliente ACC'
+  } catch {
+    return 'Cliente ACC'
+  }
+}
+
+function addressParts(address: string) {
+  if (!address) return []
+  return address.split(',').map((part) => part.trim()).filter(Boolean)
+}
 
 export function Profile({ api }: { api: ApiClient }) {
   const navigate = useNavigate()
@@ -35,6 +50,14 @@ export function Profile({ api }: { api: ApiClient }) {
   const [isEditingProfile, setIsEditingProfile] = useState(false)
   const [loadingCep, setLoadingCep] = useState(false)
   const [cepError, setCepError] = useState('')
+  const [savingCard, setSavingCard] = useState(false)
+  const [cardSaved, setCardSaved] = useState(false)
+
+  const customerName = sessionName()
+  const splitAddress = addressParts(profile.shippingAddress)
+  const cardPreviewNumber = formatCardNumber(card.cardNumber).padEnd(19, '-')
+  const cardPreviewHolder = card.holderName || customerName
+  const cardPreviewExpiry = card.expirationMonth || card.expirationYear ? `${String(card.expirationMonth || '--').padStart(2, '0')}/${card.expirationYear || '----'}` : '--/----'
 
   const refresh = useCallback(async () => {
     const [ordersResult, cardsResult, customerResult] = await Promise.allSettled([
@@ -99,7 +122,21 @@ export function Profile({ api }: { api: ApiClient }) {
   }
 
   function handleEditClick() {
-    setProfileForm(current => ({ ...current, phone: profile.phone }))
+    const [street = '', numberComplement = '', neighborhood = '', cityState = '', zipCode = ''] = splitAddress
+    const [number = '', complement = ''] = numberComplement.split(' - ').map((part) => part.trim())
+    const [city = '', state = ''] = cityState.split(' - ').map((part) => part.trim())
+
+    setProfileForm(current => ({
+      ...current,
+      phone: profile.phone,
+      street: street || current.street,
+      number: number || current.number,
+      complement: complement || current.complement,
+      neighborhood: neighborhood || current.neighborhood,
+      city: city || current.city,
+      state: state || current.state,
+      zipCode: zipCode || current.zipCode,
+    }))
     setCepError('')
     setIsEditingProfile(true)
   }
@@ -128,20 +165,28 @@ export function Profile({ api }: { api: ApiClient }) {
 
   async function registerCard(event: React.FormEvent) {
     event.preventDefault()
+    setSavingCard(true)
+    setCardSaved(false)
     
-    await api.post('/ecommerce/cards', { 
-      ...card, 
-      expirationMonth: Number(card.expirationMonth), 
-      expirationYear: Number(card.expirationYear) 
-    })
-    
-    setCard({ cardNumber: '', cvv: '', expirationMonth: '', expirationYear: '', holderName: '' })
-    
-    const data = await refresh()
-    
-    setCards(data.cards)
-    setCustomer(data.customer)
-    if (data.profile) setProfile(data.profile)
+    try {
+      await api.post('/ecommerce/cards', { 
+        ...card, 
+        expirationMonth: Number(card.expirationMonth), 
+        expirationYear: Number(card.expirationYear) 
+      })
+      
+      setCard({ cardNumber: '', cvv: '', expirationMonth: '', expirationYear: '', holderName: '' })
+      
+      const data = await refresh()
+      
+      setCards(data.cards)
+      setCustomer(data.customer)
+      if (data.profile) setProfile(data.profile)
+      setCardSaved(true)
+      window.setTimeout(() => setCardSaved(false), 1800)
+    } finally {
+      setSavingCard(false)
+    }
   }
 
   async function removeCard(id: number) {
@@ -157,15 +202,42 @@ export function Profile({ api }: { api: ApiClient }) {
   return (
     <div className="dashboard-grid ecommerce account-workspace">
       <Panel title="Informações do cliente">
+        <div className="profile-identity-card">
+          <div className="profile-avatar" aria-hidden="true">{customerName.charAt(0).toUpperCase()}</div>
+          <div>
+            <span>Minha conta</span>
+            <strong>{customerName}</strong>
+            <small>Cliente desde {date(customer?.createdAt)}</small>
+          </div>
+        </div>
+
+        <div className="profile-stats-grid">
+          <div>
+            <span>Tier</span>
+            <strong>{customer?.tier || 'indisponivel'}</strong>
+          </div>
+          <div>
+            <span>Compras</span>
+            <strong>{customer?.quantityPurchases ?? 0}</strong>
+          </div>
+          <div>
+            <span>Telefone</span>
+            <strong>{profile.phone || '--'}</strong>
+          </div>
+        </div>
         {!isEditingProfile ? (
           <div className="profile-view-mode">
             <div className="profile-field">
               <strong>Endereço de entrega</strong>
-              <p>{profile.shippingAddress || 'Nenhum endereço cadastrado.'}</p>
-            </div>
-            <div className="profile-field">
-              <strong>Telefone</strong>
-              <p>{profile.phone || 'Nenhum telefone cadastrado.'}</p>
+              {splitAddress.length ? (
+                <div className="profile-address-card">
+                  {splitAddress.map((part, index) => (
+                    <span key={`${part}-${index}`}>{part}</span>
+                  ))}
+                </div>
+              ) : (
+                <p>Nenhum endereço cadastrado.</p>
+              )}
             </div>
             <div className="profile-form-actions">
               <button onClick={handleEditClick}>
@@ -258,50 +330,71 @@ export function Profile({ api }: { api: ApiClient }) {
             </div>
           </form>
         )}
-        
-        <div className="profile-tier-badge">
-          Tier: {customer?.tier || 'indisponível'} • Compras: {customer?.quantityPurchases ?? 0}
-        </div>
       </Panel>
 
       <Panel title="Cartões salvos">
-        <form onSubmit={registerCard} className="stack-form compact wide">
-          <input 
-            placeholder="Número do cartão" 
-            value={card.cardNumber} 
-            onChange={(event) => setCard({ ...card, cardNumber: event.target.value })} 
-            required 
-          />
-          <div className="three-col">
-            <input 
-              placeholder="CVV" 
-              value={card.cvv} 
-              onChange={(event) => setCard({ ...card, cvv: event.target.value })} 
-              required 
-            />
-            <input 
-              placeholder="Mês" 
-              value={card.expirationMonth} 
-              onChange={(event) => setCard({ ...card, expirationMonth: event.target.value })} 
-              required 
-            />
-            <input 
-              placeholder="Ano" 
-              value={card.expirationYear} 
-              onChange={(event) => setCard({ ...card, expirationYear: event.target.value })} 
-              required 
-            />
+        <div className="card-save-workspace">
+          <div className={`saved-card-preview ${cardSaved ? 'saved' : ''}`}>
+            <span>ACC Pay</span>
+            <strong>{cardPreviewNumber}</strong>
+            <div>
+              <small>{cardPreviewHolder}</small>
+              <small>{cardPreviewExpiry}</small>
+            </div>
           </div>
-          <input 
-            placeholder="Nome impresso" 
-            value={card.holderName} 
-            onChange={(event) => setCard({ ...card, holderName: event.target.value })} 
-          />
-          <button>Cadastrar cartão</button>
-        </form>
+
+          <form onSubmit={registerCard} className="stack-form compact wide card-save-form">
+            <input 
+              placeholder="Número do cartão" 
+              value={card.cardNumber} 
+              onChange={(event) => setCard({ ...card, cardNumber: digitsOnly(event.target.value).slice(0, 16) })} 
+              inputMode="numeric"
+              maxLength={16}
+              required 
+            />
+            <div className="three-col">
+              <input 
+                placeholder="CVV" 
+                value={card.cvv} 
+                onChange={(event) => setCard({ ...card, cvv: digitsOnly(event.target.value).slice(0, 4) })} 
+                inputMode="numeric"
+                maxLength={4}
+                required 
+              />
+              <input 
+                placeholder="Mês" 
+                value={card.expirationMonth} 
+                onChange={(event) => setCard({ ...card, expirationMonth: digitsOnly(event.target.value).slice(0, 2) })} 
+                inputMode="numeric"
+                maxLength={2}
+                required 
+              />
+              <input 
+                placeholder="Ano" 
+                value={card.expirationYear} 
+                onChange={(event) => setCard({ ...card, expirationYear: digitsOnly(event.target.value).slice(0, 4) })} 
+                inputMode="numeric"
+                maxLength={4}
+                required 
+              />
+            </div>
+            <input 
+              placeholder="Nome impresso" 
+              value={card.holderName} 
+              onChange={(event) => setCard({ ...card, holderName: event.target.value.toUpperCase() })} 
+            />
+            {cardSaved ? <small className="card-save-feedback">Cartão salvo com sucesso.</small> : null}
+            <button disabled={savingCard}>{savingCard ? 'Salvando...' : cardSaved ? 'Cartão salvo' : 'Cadastrar cartão'}</button>
+          </form>
+        </div>
         <List 
           items={cards} 
-          render={(saved: SavedCard) => `${saved.holderName} - final ${saved.last4Digits}`} 
+          render={(saved: SavedCard) => (
+            <span className="saved-card-line">
+              <b>{saved.holderName || 'Cartao salvo'}</b>
+              <small>Final {saved.last4Digits}</small>
+            </span>
+          )} 
           action={(saved: SavedCard) => <button onClick={() => removeCard(saved.id)}>Excluir</button>} 
         />
       </Panel>
