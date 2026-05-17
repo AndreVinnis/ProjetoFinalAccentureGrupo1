@@ -33,6 +33,7 @@ public class EcommerceExceptionHandler {
     @ExceptionHandler({
             CartEmptyException.class,
             CartWasNotClosedException.class,
+            CartAlreadyClosed.class,
             IllegalOrderStatusException.class,
             InsufficientStockException.class,
             OrderShippedException.class,
