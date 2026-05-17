@@ -6,6 +6,7 @@ import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.dto.AddToCartRequest;
 import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.dto.CartItemResponse;
 import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.dto.CartResponse;
 import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.dto.UpdateCartItemRequest;
+import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.enums.CartStatus;
 import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.exceptions.CartEmptyException;
 import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.exceptions.CartItemNotFoundException;
 import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.exceptions.CartNotFoundException;
@@ -60,7 +61,7 @@ class CartControllerTest {
                 50L,
                 List.of(new CartItemResponse(100L, "Smartphone", 2,
                         new BigDecimal("1000.00"), new BigDecimal("2000.00"))),
-                new BigDecimal("2000.00")
+                new BigDecimal("2000.00"), CartStatus.ACTIVE
         );
     }
 
