@@ -9,5 +9,6 @@ export interface CartItem {
 export interface Cart {
     cartId: number;
     subtotal: number;
+    status?: string;
     items: CartItem[];
 }
