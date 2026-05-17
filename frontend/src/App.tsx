@@ -16,6 +16,45 @@ import { createApi } from './services/api'
 import { defaultPathForRoles, isAdmin, titleForPath } from './utils/auth'
 import { AdminEcommerce } from './features/ecommerce/pages/admin/AdminEcommerce'
 
+function TopbarIcon({ name }) {
+  const paths = {
+    store: (
+      <>
+        <path d="M4 10h16" />
+        <path d="M5 10l1.2-5h11.6L19 10" />
+        <path d="M6 10v9h12v-9" />
+        <path d="M9 19v-5h6v5" />
+      </>
+    ),
+    cart: (
+      <>
+        <path d="M5 5h2l1.4 8.2a2 2 0 0 0 2 1.8h6.9a2 2 0 0 0 1.9-1.4L21 8H8" />
+        <path d="M10 19h.01" />
+        <path d="M18 19h.01" />
+      </>
+    ),
+    user: (
+      <>
+        <path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z" />
+        <path d="M4 20a8 8 0 0 1 16 0" />
+      </>
+    ),
+    orders: (
+      <>
+        <path d="M6 3h12v18l-2-1.2-2 1.2-2-1.2-2 1.2-2-1.2L6 21V3Z" />
+        <path d="M9 8h6" />
+        <path d="M9 12h6" />
+      </>
+    ),
+  }
+
+  return (
+    <svg className="topbar-action-icon" viewBox="0 0 24 24" aria-hidden="true">
+      {paths[name]}
+    </svg>
+  )
+}
+
 function App() {
   const [session, setSession] = useState(() => {
     const saved = localStorage.getItem('acc_session')
@@ -118,9 +157,22 @@ function App() {
             </div>
             {customer && ['/loja', '/carrinho', '/perfil', '/pedidos'].some((p) => location.pathname.startsWith(p)) ? (
               <div className="topbar-actions">
-                <NavLink to="/loja" className={({ isActive }) => (isActive ? 'active' : '')}>Vitrine</NavLink>
-                <NavLink to="/carrinho" className={({ isActive }) => (isActive ? 'active' : '')}>Carrinho</NavLink>
-                <NavLink to="/perfil" className={({ isActive }) => (isActive ? 'active' : '')}>Minhas informações</NavLink>
+                <NavLink to="/loja" className={({ isActive }) => (isActive ? 'active' : '')}>
+                  <TopbarIcon name="store" />
+                  <span>Vitrine</span>
+                </NavLink>
+                <NavLink to="/carrinho" className={({ isActive }) => (isActive ? 'active' : '')}>
+                  <TopbarIcon name="cart" />
+                  <span>Sacola</span>
+                </NavLink>
+                <NavLink to="/pedidos" className={({ isActive }) => (isActive ? 'active' : '')}>
+                  <TopbarIcon name="orders" />
+                  <span>Pedidos</span>
+                </NavLink>
+                <NavLink to="/perfil" className={({ isActive }) => (isActive ? 'active' : '')}>
+                  <TopbarIcon name="user" />
+                  <span>Minha conta</span>
+                </NavLink>
               </div>
             ) : null}
           </header>
