@@ -30,6 +30,16 @@ function formatTier(tier) {
   return `ACC ${label.charAt(0).toUpperCase()}${label.slice(1)}`
 }
 
+function invoiceRemaining(invoice) {
+  return Math.max(Number(invoice?.totalAmount || 0) - Number(invoice?.paidAmount || 0), 0)
+}
+
+function formatInvoiceOption(invoice) {
+  const reference = invoice?.referenceMonth || `Fatura ${invoice?.id}`
+  const remaining = invoiceRemaining(invoice)
+  return `${reference} - ${invoice?.status || 'status indisponivel'} - ${money(remaining)} restante`
+}
+
 export function CustomerBank({ api }) {
   const [data, setData] = useState({})
   const [deposit, setDeposit] = useState({ amount: '', description: '' })
@@ -159,6 +169,15 @@ export function CustomerBank({ api }) {
     setActiveActionModal(action)
     setPixFeedback({ status: 'idle', message: '' })
     if (action === 'pix') setPixMode('payment')
+    if (action === 'invoice' && !invoicePay.id) {
+      const nextInvoice = data.invoices?.[0] || data.currentInvoice
+      if (nextInvoice?.id) {
+        setInvoicePay({
+          id: String(nextInvoice.id),
+          amount: String(invoiceRemaining(nextInvoice) || nextInvoice.totalAmount || ''),
+        })
+      }
+    }
   }
 
   function closeActionModal() {
@@ -174,6 +193,7 @@ export function CustomerBank({ api }) {
   const cardExpirationYear = card?.expirationYear || card?.expiryYear
   const cardExpiration = cardExpirationMonth ? `${String(cardExpirationMonth).padStart(2, '0')}/${cardExpirationYear}` : '--/--'
   const hasCardDetails = Boolean(cardNumber && cardCvv !== '---' && cardExpirationMonth)
+  const payableInvoices = data.invoices?.length ? data.invoices : data.currentInvoice?.id ? [data.currentInvoice] : []
 
   return (
     <div className="bank-dashboard">
@@ -364,9 +384,30 @@ export function CustomerBank({ api }) {
             {activeActionModal === 'invoice' ? (
               <form onSubmit={payInvoice} className="action-card modal-form">
                 <div><span>Cartao ACC</span><strong>Pagar fatura</strong></div>
-                <input autoFocus placeholder="ID da fatura" value={invoicePay.id} onChange={(event) => setInvoicePay({ ...invoicePay, id: event.target.value })} required />
-                <input placeholder="Valor" value={invoicePay.amount} onChange={(event) => setInvoicePay({ ...invoicePay, amount: event.target.value })} type="number" step="0.01" required />
-                <button>Quitar fatura</button>
+                {payableInvoices.length ? (
+                  <select
+                    autoFocus
+                    value={invoicePay.id}
+                    onChange={(event) => {
+                      const selectedInvoice = payableInvoices.find((invoice) => String(invoice.id) === event.target.value)
+                      setInvoicePay({
+                        ...invoicePay,
+                        id: event.target.value,
+                        amount: selectedInvoice ? String(invoiceRemaining(selectedInvoice) || selectedInvoice.totalAmount || '') : invoicePay.amount,
+                      })
+                    }}
+                    required
+                  >
+                    <option value="" disabled>Selecione uma fatura</option>
+                    {payableInvoices.map((invoice) => (
+                      <option key={invoice.id} value={invoice.id}>{formatInvoiceOption(invoice)}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <p className="empty-state">Nenhuma fatura encontrada para pagamento.</p>
+                )}
+                <input placeholder="Valor" value={invoicePay.amount} onChange={(event) => setInvoicePay({ ...invoicePay, amount: event.target.value })} type="number" step="0.01" disabled={!payableInvoices.length} required />
+                <button disabled={!payableInvoices.length}>Quitar fatura</button>
               </form>
             ) : null}
           </section>
