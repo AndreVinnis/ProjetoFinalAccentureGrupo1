@@ -5,23 +5,28 @@ import { CartView } from '../components/CartView'
 import { settled } from '../../../utils/async'
 import type { ApiClient } from '../../../services/api'
 import type { Cart } from '../types/cart' 
+import type { Product } from '../types/product'
 import type { SavedCard } from '../types/savedCard'
 
 export function Cart({ api }: { api: ApiClient }) {
   const [cart, setCart] = useState<Cart | null>(null)
   const [cards, setCards] = useState<SavedCard[]>([])
+  const [productCategories, setProductCategories] = useState<Record<number, string>>({})
   const [checkoutCard, setCheckoutCard] = useState({ savedCardId: '', cvv: '' })
   const [pixModal, setPixModal] = useState({ open: false, loading: false, code: '', copied: false })
 
   const refresh = useCallback(async () => {
-    const [cartResult, cardsResult] = await Promise.allSettled([
+    const [cartResult, cardsResult, productsResult] = await Promise.allSettled([
       api.get<Cart>('/ecommerce/cart/me'),
-      api.get<SavedCard[]>('/ecommerce/cards')
+      api.get<SavedCard[]>('/ecommerce/cards'),
+      api.get<{ content: Product[] }>('/ecommerce/products')
     ])
+    const products = settled(productsResult)?.content ?? []
 
     return {
       cart: settled(cartResult),
-      cards: settled(cardsResult, []) ?? []
+      cards: settled(cardsResult, []) ?? [],
+      productCategories: Object.fromEntries(products.map((product) => [product.id, product.categoryName]))
     }
   }, [api])
 
@@ -31,6 +36,7 @@ export function Cart({ api }: { api: ApiClient }) {
 
       setCart(data.cart ?? null)
       setCards(data.cards)
+      setProductCategories(data.productCategories)
     }
 
     void load()
@@ -45,6 +51,7 @@ export function Cart({ api }: { api: ApiClient }) {
 
     setCart(data.cart ?? null)
     setCards(data.cards)
+    setProductCategories(data.productCategories)
   }
 
   async function removeCartItem(id: number) {
@@ -54,6 +61,7 @@ export function Cart({ api }: { api: ApiClient }) {
 
     setCart(data.cart ?? null)
     setCards(data.cards)
+    setProductCategories(data.productCategories)
   }
 
   async function handleCartAction(action: 'close' | 'open' | 'clear') {
@@ -67,6 +75,7 @@ export function Cart({ api }: { api: ApiClient }) {
 
     setCart(data.cart ?? null)
     setCards(data.cards)
+    setProductCategories(data.productCategories)
   }
 
   async function checkoutPix() {
@@ -85,6 +94,7 @@ export function Cart({ api }: { api: ApiClient }) {
 
       setCart(data.cart ?? null)
       setCards(data.cards)
+      setProductCategories(data.productCategories)
     } catch {
       setPixModal({ open: true, loading: false, code: 'Nao foi possivel gerar o codigo Pix.', copied: false })
     }
@@ -121,6 +131,7 @@ export function Cart({ api }: { api: ApiClient }) {
 
     setCart(data.cart ?? null)
     setCards(data.cards)
+    setProductCategories(data.productCategories)
   }
 
   return (
@@ -128,6 +139,7 @@ export function Cart({ api }: { api: ApiClient }) {
       <Panel title="Carrinho">
         <CartView 
           cart={cart} 
+          productCategories={productCategories}
           onUpdate={updateCart} 
           onRemove={removeCartItem} 
         />

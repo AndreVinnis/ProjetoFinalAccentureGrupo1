@@ -1,13 +1,15 @@
 import { money } from '../../../utils/format'
+import { placeholderImageForCategory } from '../../../categoryPlaceholder'
 import type { Cart } from '../types/cart'
 
 interface CartViewProps {
   cart: Cart | null
+  productCategories?: Record<number, string>
   onUpdate: (productId: number, quantity: number) => void
   onRemove: (productId: number) => void
 }
 
-export function CartView({ cart, onUpdate, onRemove }: CartViewProps) {
+export function CartView({ cart, productCategories = {}, onUpdate, onRemove }: CartViewProps) {
   if (!cart?.items?.length) {
     return <p className="empty-state">Carrinho vazio.</p>
   }
@@ -16,6 +18,10 @@ export function CartView({ cart, onUpdate, onRemove }: CartViewProps) {
     <div className="cart-list">
       {cart.items.map((item) => (
         <div className="cart-row" key={item.productId}>
+          <div className="cart-row-cover">
+            <img src={placeholderImageForCategory(productCategories[item.productId] || item.categoryName || item.productName)} alt="" loading="lazy" decoding="async" />
+          </div>
+
           <div>
             <strong>{item.productName}</strong>
             <small>{money(item.unitPrice)} cada</small>
