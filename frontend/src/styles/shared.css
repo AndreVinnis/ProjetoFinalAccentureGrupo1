@@ -1087,7 +1087,8 @@ button:active,
   font-size: 19px;
 }
 
-.action-card input {
+.action-card input,
+.action-card select {
   color: #f7efff;
   background: rgba(255, 255, 255, 0.075);
   border-color: rgba(188, 151, 255, 0.18);
@@ -1215,15 +1216,22 @@ textarea:focus {
   box-shadow: 0 10px 22px rgba(91, 24, 178, 0.28);
 }
 
-.action-card.modal-form input {
+.action-card.modal-form input,
+.action-card.modal-form select {
   min-height: 48px;
   border-radius: 10px;
   background: rgba(255, 255, 255, 0.08);
 }
 
-.action-card.modal-form input:hover {
+.action-card.modal-form input:hover,
+.action-card.modal-form select:hover {
   border-color: rgba(207, 178, 255, 0.34);
   background: rgba(255, 255, 255, 0.11);
+}
+
+.action-card.modal-form select option {
+  color: #f7efff;
+  background: #24103d;
 }
 
 .action-card.modal-form .input-error {
@@ -1514,11 +1522,12 @@ th {
 }
 
 .empty-state {
-  color: #7b6d87;
-  background: #faf7fe;
-  border: 1px dashed #d7cae7;
+  color: #d9c9ff;
+  background: rgba(31, 13, 52, 0.82);
+  border: 1px dashed rgba(188, 151, 255, 0.34);
   border-radius: 8px;
   padding: 14px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 
 .simple-list,
