@@ -28,6 +28,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.YearMonth;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -140,6 +141,53 @@ class CreditCardServiceTest {
         verify(accountService).creditMerchant(
                 new BigDecimal("200.00"), "Compra teste", "ORDER-42"
         );
+    }
+
+    @Test
+    void chargeCard_DeveParcelarCompraEmFaturasMensais() {
+        Invoice currentInvoice = Invoice.builder()
+                .id(50L)
+                .referenceMonth(YearMonth.of(2026, 5))
+                .build();
+        Invoice secondInvoice = Invoice.builder()
+                .id(51L)
+                .referenceMonth(YearMonth.of(2026, 6))
+                .build();
+        Invoice thirdInvoice = Invoice.builder()
+                .id(52L)
+                .referenceMonth(YearMonth.of(2026, 7))
+                .build();
+
+        when(creditCardRepository.findById(100L)).thenReturn(Optional.of(card));
+        when(encryptionService.encrypt("123")).thenReturn("ENC(123)");
+        when(invoiceService.getOrCreateOpenInvoice(card)).thenReturn(currentInvoice);
+        when(invoiceService.getOrCreateOpenInvoice(card, YearMonth.of(2026, 6))).thenReturn(secondInvoice);
+        when(invoiceService.getOrCreateOpenInvoice(card, YearMonth.of(2026, 7))).thenReturn(thirdInvoice);
+
+        creditCardService.chargeCard(100L, new BigDecimal("100.00"), "123",
+                "Compra parcelada", "ORDER-77", 3);
+
+        ArgumentCaptor<CardPurchase> purchaseCaptor = ArgumentCaptor.forClass(CardPurchase.class);
+        verify(cardPurchaseRepository, times(3)).save(purchaseCaptor.capture());
+
+        List<CardPurchase> purchases = purchaseCaptor.getAllValues();
+        assertEquals(new BigDecimal("33.34"), purchases.get(0).getAmount());
+        assertEquals(new BigDecimal("33.33"), purchases.get(1).getAmount());
+        assertEquals(new BigDecimal("33.33"), purchases.get(2).getAmount());
+        assertEquals(1, purchases.get(0).getInstallmentNumber());
+        assertEquals(2, purchases.get(1).getInstallmentNumber());
+        assertEquals(3, purchases.get(2).getInstallmentNumber());
+        assertEquals(3, purchases.get(0).getInstallmentTotal());
+        assertEquals("Compra parcelada (1/3)", purchases.get(0).getDescription());
+        assertEquals("Compra parcelada (3/3)", purchases.get(2).getDescription());
+        assertEquals(purchases.get(0).getInstallmentGroupId(), purchases.get(1).getInstallmentGroupId());
+        assertEquals(purchases.get(1).getInstallmentGroupId(), purchases.get(2).getInstallmentGroupId());
+
+        verify(invoiceService).addCardPurchase(eq(currentInvoice), eq(purchases.get(0)));
+        verify(invoiceService).addCardPurchase(eq(secondInvoice), eq(purchases.get(1)));
+        verify(invoiceService).addCardPurchase(eq(thirdInvoice), eq(purchases.get(2)));
+        assertEquals(new BigDecimal("900.00"), card.getAvailableLimit());
+        verify(accountService).creditMerchant(new BigDecimal("100.00"), "Compra parcelada", "ORDER-77");
     }
 
     @Test

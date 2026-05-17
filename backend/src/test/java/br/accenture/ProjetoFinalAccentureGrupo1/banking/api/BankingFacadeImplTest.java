@@ -112,9 +112,9 @@ class BankingFacadeImplTest {
 
     @Test
     void chargeCard_DeveDelegarParaCreditCardService() {
-        bankingFacade.chargeCard(5L, new BigDecimal("100.00"), "123", "Compra X", "ORDER-1");
+        bankingFacade.chargeCard(5L, new BigDecimal("100.00"), "123", "Compra X", "ORDER-1", 4);
 
-        verify(creditCardService).chargeCard(5L, new BigDecimal("100.00"), "123", "Compra X", "ORDER-1");
+        verify(creditCardService).chargeCard(5L, new BigDecimal("100.00"), "123", "Compra X", "ORDER-1", 4);
     }
 
     @Test

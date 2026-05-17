@@ -42,8 +42,20 @@ public class InvoiceService {
 
     @Transactional
     public Invoice getOrCreateOpenInvoice(CreditCard card) {
-        return invoiceRepository.findByCardIdAndStatus(card.getId(), InvoiceStatus.OPEN)
+        return invoiceRepository.findFirstByCardIdAndStatusOrderByReferenceMonthAsc(card.getId(), InvoiceStatus.OPEN)
                 .orElseGet(() -> invoiceRepository.save(newOpenInvoiceForNextAvailableMonth(card)));
+    }
+
+    @Transactional
+    public Invoice getOrCreateOpenInvoice(CreditCard card, YearMonth referenceMonth) {
+        return invoiceRepository.findByCardIdAndReferenceMonth(card.getId(), referenceMonth)
+                .map(invoice -> {
+                    if (invoice.getStatus() != InvoiceStatus.OPEN) {
+                        throw new InvoiceNotCloseableException(invoice.getId(), invoice.getStatus());
+                    }
+                    return invoice;
+                })
+                .orElseGet(() -> invoiceRepository.save(newOpenInvoice(card, referenceMonth)));
     }
 
     @Transactional

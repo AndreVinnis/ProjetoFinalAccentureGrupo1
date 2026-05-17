@@ -23,9 +23,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.YearMonth;
 import java.util.List;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -92,23 +95,46 @@ public class CreditCardService {
 
     @Transactional
     public void chargeCard(Long cardId, BigDecimal amount, String cvv, String description, String refence) {
+        chargeCard(cardId, amount, cvv, description, refence, 1);
+    }
+
+    @Transactional
+    public void chargeCard(Long cardId, BigDecimal amount, String cvv, String description, String refence, int installments) {
         CreditCard card = creditCardRepository.findById(cardId).orElseThrow(()
             -> new CardNotFoundException(cardId));
+        validateInstallments(installments);
         validateCardCanPurchase(card,amount, cvv);
 
         Invoice currentInvoice = invoiceService.getOrCreateOpenInvoice(card);
+        YearMonth firstReferenceMonth = currentInvoice.getReferenceMonth();
+        String installmentGroupId = UUID.randomUUID().toString();
+        List<BigDecimal> installmentAmounts = splitInstallments(amount, installments);
 
-        CardPurchase cardPurchase = CardPurchase.builder()
-                .card(card)
-                .invoice(currentInvoice)
-                .amount(amount)
-                .description(description)
-                .reference(refence)
-                .build();
+        for (int index = 0; index < installments; index++) {
+            Invoice invoice = index == 0
+                    ? currentInvoice
+                    : invoiceService.getOrCreateOpenInvoice(card, firstReferenceMonth.plusMonths(index));
+            int installmentNumber = index + 1;
+            String installmentDescription = installments == 1
+                    ? description
+                    : description + " (" + installmentNumber + "/" + installments + ")";
+
+            CardPurchase cardPurchase = CardPurchase.builder()
+                    .card(card)
+                    .invoice(invoice)
+                    .amount(installmentAmounts.get(index))
+                    .description(installmentDescription)
+                    .reference(refence)
+                    .installmentNumber(installmentNumber)
+                    .installmentTotal(installments)
+                    .installmentGroupId(installmentGroupId)
+                    .build();
+
+            invoiceService.addCardPurchase(invoice, cardPurchase);
+            cardPurchaseRepository.save(cardPurchase);
+        }
 
         card.setAvailableLimit(card.getAvailableLimit().subtract(amount));
-        invoiceService.addCardPurchase(currentInvoice, cardPurchase);
-        cardPurchaseRepository.save(cardPurchase);
         creditCardRepository.save(card);
         accountService.creditMerchant(amount, description, refence);
     }
@@ -215,7 +241,24 @@ public class CreditCardService {
                 purchase.getAmount(),
                 purchase.getDescription(),
                 purchase.getReference(),
+                purchase.getInstallmentNumber() == null ? 1 : purchase.getInstallmentNumber(),
+                purchase.getInstallmentTotal() == null ? 1 : purchase.getInstallmentTotal(),
                 purchase.getPurchaseDate()
         );
+    }
+
+    private void validateInstallments(int installments) {
+        if (installments < 1 || installments > 12) {
+            throw new IllegalArgumentException("Parcelamento deve estar entre 1 e 12");
+        }
+    }
+
+    private List<BigDecimal> splitInstallments(BigDecimal amount, int installments) {
+        BigDecimal baseAmount = amount.divide(BigDecimal.valueOf(installments), 2, RoundingMode.DOWN);
+        BigDecimal remainder = amount.subtract(baseAmount.multiply(BigDecimal.valueOf(installments)));
+
+        return java.util.stream.IntStream.rangeClosed(1, installments)
+                .mapToObj(index -> index == 1 ? baseAmount.add(remainder) : baseAmount)
+                .toList();
     }
 }

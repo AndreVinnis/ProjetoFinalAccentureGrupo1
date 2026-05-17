@@ -11,6 +11,7 @@ import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.domain.OrderItem;
 import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.domain.Product;
 import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.domain.SavedCard;
 import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.dto.DiscountApplication;
+import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.dto.InstallmentOptionResponse;
 import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.dto.OrderResponse;
 import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.enums.CartStatus;
 import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.enums.CustomerTier;
@@ -177,7 +178,7 @@ class OrderServiceTest {
         assertEquals(201L, response.orderId());
         assertEquals(OrderStatus.PAID, response.status());
         assertEquals(PaymentMethod.CREDIT_CARD, response.paymentMethod());
-        verify(bankingFacade).chargeCard(eq(300L), eq(new BigDecimal("300.00")), eq("123"), any(), eq("ORDER-201"));
+        verify(bankingFacade).chargeCard(eq(300L), eq(new BigDecimal("300.00")), eq("123"), any(), eq("ORDER-201"), eq(1));
         verify(productService).consumeReserved(100L, 2);
         assertEquals(CartStatus.ACTIVE, cart.getStatus());
         assertEquals(0, cart.getItems().size());
@@ -211,7 +212,7 @@ class OrderServiceTest {
 
         assertEquals(new BigDecimal("300.00"), response.totalAmount());
         assertEquals(BigDecimal.ZERO, response.discountTotal());
-        verify(bankingFacade).chargeCard(eq(300L), eq(new BigDecimal("300.00")), eq("123"), any(), eq("ORDER-201"));
+        verify(bankingFacade).chargeCard(eq(300L), eq(new BigDecimal("300.00")), eq("123"), any(), eq("ORDER-201"), eq(1));
         verify(bankingFacade).applyCashback(eq(10L), eq(new BigDecimal("15.00")), eq("ORDER-201"), any());
     }
 
@@ -238,6 +239,44 @@ class OrderServiceTest {
         orderService.checkoutCard(EMAIL, 30L, "123");
 
         verify(bankingFacade, never()).applyCashback(any(), any(), any(), any());
+    }
+
+    @Test
+    void checkoutCard_DeveEnviarQuantidadeDeParcelasParaBanco() {
+        SavedCard savedCard = SavedCard.builder()
+                .id(30L)
+                .customer(customer)
+                .bankingCardId(300L)
+                .last4Digits("1111")
+                .build();
+        when(customerService.findByEmail(EMAIL)).thenReturn(customer);
+        when(cartRepository.findByCustomer_Id(1L)).thenReturn(Optional.of(cart));
+        when(cartService.isClosed(cart)).thenReturn(true);
+        when(savedCardService.findByIdAndCustomer(30L, 1L)).thenReturn(savedCard);
+        when(userFacade.findByEmail(EMAIL)).thenReturn(userInfo());
+        when(orderRepository.save(any(Order.class))).thenAnswer(inv -> {
+            Order o = inv.getArgument(0);
+            o.setId(201L);
+            return o;
+        });
+
+        orderService.checkoutCard(EMAIL, 30L, "123", 4);
+
+        verify(bankingFacade).chargeCard(eq(300L), eq(new BigDecimal("300.00")), eq("123"), any(), eq("ORDER-201"), eq(4));
+    }
+
+    @Test
+    void listCardInstallments_DeveRetornarOpcoesAteDozeParcelas() {
+        when(customerService.findByEmail(EMAIL)).thenReturn(customer);
+        when(cartRepository.findByCustomer_Id(1L)).thenReturn(Optional.of(cart));
+
+        List<InstallmentOptionResponse> options = orderService.listCardInstallments(EMAIL);
+
+        assertEquals(12, options.size());
+        assertEquals(1, options.get(0).installments());
+        assertEquals(new BigDecimal("300.00"), options.get(0).installmentAmount());
+        assertEquals(12, options.get(11).installments());
+        assertEquals(new BigDecimal("25.00"), options.get(11).installmentAmount());
     }
 
     @Test

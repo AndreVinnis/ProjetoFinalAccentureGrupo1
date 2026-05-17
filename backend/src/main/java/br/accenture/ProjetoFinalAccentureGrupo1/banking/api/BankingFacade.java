@@ -18,7 +18,11 @@ public interface BankingFacade {
 
     CardValidationResponse verifyCard(String cardNumber, String cvv, int expirationMonth, int expirationYear);
 
-    void chargeCard(Long cardId, BigDecimal amount, String cvv, String description, String reference);
+    default void chargeCard(Long cardId, BigDecimal amount, String cvv, String description, String reference) {
+        chargeCard(cardId, amount, cvv, description, reference, 1);
+    }
+
+    void chargeCard(Long cardId, BigDecimal amount, String cvv, String description, String reference, int installments);
 
     void issueRefund(Long toUserId, BigDecimal amount, String reference, String description);
 

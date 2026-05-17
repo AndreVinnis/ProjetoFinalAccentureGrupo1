@@ -1,6 +1,7 @@
 package br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.controllers;
 
 import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.dto.CheckoutCardRequest;
+import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.dto.InstallmentOptionResponse;
 import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.dto.OrderResponse;
 import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.services.OrderService;
 import jakarta.validation.Valid;
@@ -47,7 +48,20 @@ public class OrderController {
             @AuthenticationPrincipal UserDetails userDetails,
             @RequestBody @Valid CheckoutCardRequest request
     ) {
-        return ResponseEntity.ok(orderService.checkoutCard(userDetails.getUsername(), request.savedCardId(), request.cvv()));
+        return ResponseEntity.ok(orderService.checkoutCard(
+                userDetails.getUsername(),
+                request.savedCardId(),
+                request.cvv(),
+                request.installmentsOrDefault()
+        ));
+    }
+
+    @GetMapping("/checkout/card/installments")
+    @PreAuthorize("hasRole('CUSTOMER')")
+    public ResponseEntity<List<InstallmentOptionResponse>> listCardInstallments(
+            @AuthenticationPrincipal UserDetails userDetails
+    ) {
+        return ResponseEntity.ok(orderService.listCardInstallments(userDetails.getUsername()));
     }
 
     @PostMapping("/{orderId}/cancel")
