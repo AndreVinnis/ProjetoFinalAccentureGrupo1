@@ -24,6 +24,22 @@ function normalizeCardPayload(card) {
   return card?.card || card?.data || card?.content || card
 }
 
+function formatTier(tier) {
+  if (!tier) return 'ACC'
+  const label = String(tier).toLowerCase()
+  return `ACC ${label.charAt(0).toUpperCase()}${label.slice(1)}`
+}
+
+function invoiceRemaining(invoice) {
+  return Math.max(Number(invoice?.totalAmount || 0) - Number(invoice?.paidAmount || 0), 0)
+}
+
+function formatInvoiceOption(invoice) {
+  const reference = invoice?.referenceMonth || `Fatura ${invoice?.id}`
+  const remaining = invoiceRemaining(invoice)
+  return `${reference} - ${invoice?.status || 'status indisponivel'} - ${money(remaining)} restante`
+}
+
 export function CustomerBank({ api }) {
   const [data, setData] = useState({})
   const [deposit, setDeposit] = useState({ amount: '', description: '' })
@@ -40,7 +56,7 @@ export function CustomerBank({ api }) {
 
   const refresh = useCallback(async () => {
     const silent = { silent: true }
-    const [account, balance, limit, purchases, invoices, currentInvoice, transactions] = await Promise.allSettled([
+    const [account, balance, limit, purchases, invoices, currentInvoice, transactions, customer] = await Promise.allSettled([
       api.get('/banking/accounts/me', silent),
       api.get('/banking/accounts/me/balance', silent),
       api.get('/banking/cards/me/limit', silent),
@@ -48,6 +64,7 @@ export function CustomerBank({ api }) {
       api.get('/banking/invoices', silent),
       api.get('/banking/invoices/current', silent),
       api.get('/banking/accounts/me/transactions', silent),
+      api.get('/customers/me', silent),
     ])
     setData((current) => ({
       ...current,
@@ -58,6 +75,7 @@ export function CustomerBank({ api }) {
       invoices: settled(invoices, []),
       currentInvoice: settled(currentInvoice),
       transactions: settled(transactions, []),
+      customer: settled(customer),
     }))
   }, [api])
 
@@ -151,6 +169,15 @@ export function CustomerBank({ api }) {
     setActiveActionModal(action)
     setPixFeedback({ status: 'idle', message: '' })
     if (action === 'pix') setPixMode('payment')
+    if (action === 'invoice' && !invoicePay.id) {
+      const nextInvoice = data.invoices?.[0] || data.currentInvoice
+      if (nextInvoice?.id) {
+        setInvoicePay({
+          id: String(nextInvoice.id),
+          amount: String(invoiceRemaining(nextInvoice) || nextInvoice.totalAmount || ''),
+        })
+      }
+    }
   }
 
   function closeActionModal() {
@@ -166,6 +193,7 @@ export function CustomerBank({ api }) {
   const cardExpirationYear = card?.expirationYear || card?.expiryYear
   const cardExpiration = cardExpirationMonth ? `${String(cardExpirationMonth).padStart(2, '0')}/${cardExpirationYear}` : '--/--'
   const hasCardDetails = Boolean(cardNumber && cardCvv !== '---' && cardExpirationMonth)
+  const payableInvoices = data.invoices?.length ? data.invoices : data.currentInvoice?.id ? [data.currentInvoice] : []
 
   return (
     <div className="bank-dashboard">
@@ -196,7 +224,7 @@ export function CustomerBank({ api }) {
         <button className={`credit-card-visual ${cardRevealed ? 'revealed' : ''}`} type="button" onClick={toggleCardReveal} aria-label={cardRevealed ? 'Ocultar dados do cartao' : 'Mostrar dados do cartao'}>
           <div className="card-face card-front">
             <div className="card-chip" />
-            <span>ACC Platinum</span>
+            <span>{formatTier(data.customer?.tier)}</span>
             <strong>{maskCard(cardNumber)}</strong>
             <div>
               <small>{cardHolder}</small>
@@ -356,9 +384,30 @@ export function CustomerBank({ api }) {
             {activeActionModal === 'invoice' ? (
               <form onSubmit={payInvoice} className="action-card modal-form">
                 <div><span>Cartao ACC</span><strong>Pagar fatura</strong></div>
-                <input autoFocus placeholder="ID da fatura" value={invoicePay.id} onChange={(event) => setInvoicePay({ ...invoicePay, id: event.target.value })} required />
-                <input placeholder="Valor" value={invoicePay.amount} onChange={(event) => setInvoicePay({ ...invoicePay, amount: event.target.value })} type="number" step="0.01" required />
-                <button>Quitar fatura</button>
+                {payableInvoices.length ? (
+                  <select
+                    autoFocus
+                    value={invoicePay.id}
+                    onChange={(event) => {
+                      const selectedInvoice = payableInvoices.find((invoice) => String(invoice.id) === event.target.value)
+                      setInvoicePay({
+                        ...invoicePay,
+                        id: event.target.value,
+                        amount: selectedInvoice ? String(invoiceRemaining(selectedInvoice) || selectedInvoice.totalAmount || '') : invoicePay.amount,
+                      })
+                    }}
+                    required
+                  >
+                    <option value="" disabled>Selecione uma fatura</option>
+                    {payableInvoices.map((invoice) => (
+                      <option key={invoice.id} value={invoice.id}>{formatInvoiceOption(invoice)}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <p className="empty-state">Nenhuma fatura encontrada para pagamento.</p>
+                )}
+                <input placeholder="Valor" value={invoicePay.amount} onChange={(event) => setInvoicePay({ ...invoicePay, amount: event.target.value })} type="number" step="0.01" disabled={!payableInvoices.length} required />
+                <button disabled={!payableInvoices.length}>Quitar fatura</button>
               </form>
             ) : null}
           </section>
