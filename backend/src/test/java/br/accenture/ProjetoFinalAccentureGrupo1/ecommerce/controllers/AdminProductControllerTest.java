@@ -3,6 +3,7 @@ package br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.controllers;
 import br.accenture.ProjetoFinalAccentureGrupo1.auth.security.JwtAuthenticationFilter;
 import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.domain.Category;
 import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.domain.Product;
+import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.dto.AdminProductResponse;
 import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.dto.ProductRequest;
 import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.services.ProductService;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -17,10 +18,15 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.math.BigDecimal;
+import java.time.Instant;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -48,6 +54,34 @@ class AdminProductControllerTest {
                 .price(new BigDecimal("1500.00"))
                 .totalStock(10).reservedStock(0)
                 .active(true).category(category).build();
+    }
+
+    @Test
+    @DisplayName("GET /ecommerce/admin/products lista produtos e retorna 200")
+    void listProducts_returns200() throws Exception {
+        AdminProductResponse response = new AdminProductResponse(
+                100L,
+                "Smartphone",
+                "Top",
+                new BigDecimal("1500.00"),
+                10,
+                0,
+                10,
+                true,
+                Instant.parse("2026-01-01T00:00:00Z"),
+                1L,
+                "EletrÃ´nicos"
+        );
+
+        when(productService.listProductsForAdmin(PageRequest.of(0, 20)))
+                .thenReturn(new PageImpl<>(List.of(response)));
+
+        mockMvc.perform(get("/ecommerce/admin/products"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].id").value(100))
+                .andExpect(jsonPath("$.content[0].totalStock").value(10))
+                .andExpect(jsonPath("$.content[0].availableStock").value(10))
+                .andExpect(jsonPath("$.content[0].active").value(true));
     }
 
     @Test
@@ -113,5 +147,14 @@ class AdminProductControllerTest {
                 .andExpect(status().isNoContent());
 
         verify(productService).deactivate(100L);
+    }
+
+    @Test
+    @DisplayName("POST /ecommerce/admin/products/{id}/activate retorna 204")
+    void activateProduct_returns204() throws Exception {
+        mockMvc.perform(post("/ecommerce/admin/products/100/activate"))
+                .andExpect(status().isNoContent());
+
+        verify(productService).activate(100L);
     }
 }

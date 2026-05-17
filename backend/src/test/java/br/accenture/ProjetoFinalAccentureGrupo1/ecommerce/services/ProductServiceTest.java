@@ -2,6 +2,7 @@ package br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.services;
 
 import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.domain.Category;
 import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.domain.Product;
+import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.dto.AdminProductResponse;
 import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.dto.ProductResponse;
 import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.repository.ProductRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -136,6 +137,26 @@ class ProductServiceTest {
     }
 
     @Test
+    @DisplayName("listProductsForAdmin retorna produtos com estoque total, reservado, disponÃ­vel e status")
+    void listProductsForAdmin_success() {
+        Pageable pageable = PageRequest.of(0, 10);
+        product.setReservedStock(3);
+        when(productRepository.findAll(eq(pageable)))
+                .thenReturn(new PageImpl<>(List.of(product)));
+
+        Page<AdminProductResponse> result = productService.listProductsForAdmin(pageable);
+
+        assertThat(result.getContent()).hasSize(1);
+        AdminProductResponse first = result.getContent().get(0);
+        assertThat(first.id()).isEqualTo(100L);
+        assertThat(first.totalStock()).isEqualTo(10);
+        assertThat(first.reservedStock()).isEqualTo(3);
+        assertThat(first.availableStock()).isEqualTo(7);
+        assertThat(first.active()).isTrue();
+        assertThat(first.categoryName()).isEqualTo("EletrÃ´nicos");
+    }
+
+    @Test
     @DisplayName("createProduct salva o produto com os dados informados")
     void createProduct_success() {
         when(categoryService.findEntityByName("Eletrônicos")).thenReturn(category);
@@ -194,6 +215,18 @@ class ProductServiceTest {
         productService.deactivate(100L);
 
         assertThat(product.isActive()).isFalse();
+        verify(productRepository).save(product);
+    }
+
+    @Test
+    @DisplayName("activate marca o produto como ativo")
+    void activate_success() {
+        product.setActive(false);
+        when(productRepository.findById(100L)).thenReturn(Optional.of(product));
+
+        productService.activate(100L);
+
+        assertThat(product.isActive()).isTrue();
         verify(productRepository).save(product);
     }
 
