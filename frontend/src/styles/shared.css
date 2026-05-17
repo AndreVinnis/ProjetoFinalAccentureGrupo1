@@ -1531,6 +1531,75 @@ textarea:focus {
   gap: 12px;
 }
 
+.store-searchbar {
+  display: grid;
+  grid-template-columns: minmax(260px, 1fr) auto auto;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid rgba(188, 151, 255, 0.16);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.055);
+}
+
+.store-search-field {
+  position: relative;
+  display: block;
+}
+
+.store-search-field span {
+  position: absolute;
+  left: 13px;
+  top: 50%;
+  width: 15px;
+  height: 15px;
+  border: 2px solid #c9a7ff;
+  border-radius: 999px;
+  transform: translateY(-55%);
+  pointer-events: none;
+}
+
+.store-search-field span::after {
+  content: '';
+  position: absolute;
+  width: 7px;
+  height: 2px;
+  right: -6px;
+  bottom: -4px;
+  border-radius: 999px;
+  background: #c9a7ff;
+  transform: rotate(45deg);
+}
+
+.store-search-field input {
+  min-height: 48px;
+  padding-left: 42px;
+}
+
+.store-searchbar small {
+  color: #c9b8dc;
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.store-searchbar button {
+  min-height: 38px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.075);
+  color: #d9c9ff;
+  box-shadow: none;
+}
+
+.store-searchbar button:hover {
+  background: rgba(139, 63, 252, 0.18);
+  box-shadow: none;
+}
+
+.product-grid > .empty-state {
+  grid-column: 1 / -1;
+}
+
 .product-card {
   border: 1px solid rgba(188, 151, 255, 0.16);
   border-radius: 8px;
