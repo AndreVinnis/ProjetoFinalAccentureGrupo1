@@ -68,6 +68,14 @@ public class InvoiceService {
                 .toList();
     }
 
+    @Transactional(readOnly = true)
+    public List<InvoiceResponse> listOpenInvoicesForAdmin() {
+        return invoiceRepository.findByStatusOrderByClosingDateAsc(InvoiceStatus.OPEN)
+                .stream()
+                .map(this::toInvoiceResponse)
+                .toList();
+    }
+
     @Transactional
     public void addCardPurchase(Invoice invoice, CardPurchase cardPurchase){
         invoice.setTotalAmount(invoice.getTotalAmount().add(cardPurchase.getAmount()));

@@ -2,9 +2,10 @@ package br.accenture.ProjetoFinalAccentureGrupo1.banking.controllers;
 
 import br.accenture.ProjetoFinalAccentureGrupo1.auth.security.JwtAuthenticationFilter;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.domain.Account;
-import br.accenture.ProjetoFinalAccentureGrupo1.banking.domain.Transaction;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.dto.AccountResponse;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.dto.DepositRequest;
+import br.accenture.ProjetoFinalAccentureGrupo1.banking.dto.InvoiceResponse;
+import br.accenture.ProjetoFinalAccentureGrupo1.banking.dto.TransactionResponse;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.enums.AccountStatus;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.enums.AccountType;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.enums.TransactionType;
@@ -30,6 +31,8 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.YearMonth;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -106,15 +109,15 @@ class AdminAccountControllerTest {
 
     @Test
     void getAllTransactions_DeveRetornar200ComLista() throws Exception {
-        Transaction tx = Transaction.builder()
-                .id(1L)
-                .type(TransactionType.DEPOSIT)
-                .amount(new BigDecimal("10.00"))
-                .balanceAfter(new BigDecimal("510.00"))
-                .reference("REF-1")
-                .description("Depósito")
-                .createdAt(Instant.now())
-                .build();
+        TransactionResponse tx = new TransactionResponse(
+                1L,
+                TransactionType.DEPOSIT,
+                new BigDecimal("10.00"),
+                new BigDecimal("510.00"),
+                "REF-1",
+                "Deposito",
+                Instant.now()
+        );
         when(transactionService.findAll()).thenReturn(List.of(tx));
 
         mockMvc.perform(get("/banking/admin/accounts/transactions")
@@ -122,6 +125,29 @@ class AdminAccountControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(1))
                 .andExpect(jsonPath("$[0].type").value("DEPOSIT"));
+    }
+
+    @Test
+    void getOpenInvoices_DeveRetornar200ComFaturasAbertas() throws Exception {
+        InvoiceResponse invoice = new InvoiceResponse(
+                50L,
+                YearMonth.of(2026, 5),
+                LocalDate.of(2026, 5, 25),
+                LocalDate.of(2026, 6, 10),
+                new BigDecimal("320.00"),
+                BigDecimal.ZERO,
+                InvoiceStatus.OPEN,
+                null,
+                null
+        );
+        when(invoiceService.listOpenInvoicesForAdmin()).thenReturn(List.of(invoice));
+
+        mockMvc.perform(get("/banking/admin/billing/invoices/open")
+                        .with(user(ADMIN).roles("BANKING_ADMIN")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].id").value(50))
+                .andExpect(jsonPath("$[0].status").value("OPEN"));
     }
 
     @Test
