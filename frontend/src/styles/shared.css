@@ -592,6 +592,70 @@ button:active,
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.dashboard-grid.ecommerce {
+  padding: 22px;
+  border-radius: 8px;
+  background:
+    radial-gradient(circle at 10% 0%, rgba(114, 53, 209, 0.2), transparent 30%),
+    radial-gradient(circle at 92% 8%, rgba(34, 183, 162, 0.14), transparent 24%),
+    linear-gradient(180deg, #13091f, #09050f);
+}
+
+.dashboard-grid.ecommerce .panel {
+  border-color: rgba(188, 151, 255, 0.14);
+  background: rgba(255, 255, 255, 0.06);
+  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.18);
+}
+
+.dashboard-grid.ecommerce .panel h2,
+.dashboard-grid.ecommerce h3 {
+  color: #f7efff;
+}
+
+.dashboard-grid.ecommerce .panel p,
+.dashboard-grid.ecommerce label {
+  color: #c9b8dc;
+}
+
+.dashboard-grid.ecommerce input,
+.dashboard-grid.ecommerce select,
+.dashboard-grid.ecommerce textarea {
+  color: #f7efff;
+  background: rgba(255, 255, 255, 0.075);
+  border-color: rgba(188, 151, 255, 0.18);
+}
+
+.dashboard-grid.ecommerce input::placeholder,
+.dashboard-grid.ecommerce textarea::placeholder {
+  color: #a997bf;
+}
+
+.dashboard-grid.ecommerce input:hover,
+.dashboard-grid.ecommerce select:hover,
+.dashboard-grid.ecommerce textarea:hover {
+  border-color: rgba(207, 178, 255, 0.34);
+  background: rgba(255, 255, 255, 0.11);
+}
+
+.dashboard-grid.ecommerce select option {
+  color: #f7efff;
+  background: #24103d;
+}
+
+.dashboard-grid.ecommerce th {
+  color: #d7c6ee;
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.dashboard-grid.ecommerce td {
+  color: #f7efff;
+}
+
+.dashboard-grid.ecommerce td,
+.dashboard-grid.ecommerce th {
+  border-bottom-color: rgba(255, 255, 255, 0.1);
+}
+
 .dashboard-grid.account-workspace {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
@@ -1468,14 +1532,15 @@ textarea:focus {
 }
 
 .product-card {
-  border: 1px solid #e7def0;
+  border: 1px solid rgba(188, 151, 255, 0.16);
   border-radius: 8px;
   padding: 14px;
   display: grid;
   gap: 10px;
   min-height: 210px;
   align-content: start;
-  background: #fbf9fe;
+  background: rgba(255, 255, 255, 0.065);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.16);
 }
 
 .product-card small {
@@ -1484,13 +1549,13 @@ textarea:focus {
 }
 
 .product-card p {
-  color: #65576f;
+  color: #c9b8dc;
   font-size: 13px;
   min-height: 38px;
 }
 
 .product-card strong {
-  color: #351256;
+  color: #f7efff;
 }
 
 .table-wrap {
@@ -1557,7 +1622,7 @@ th {
 
 .cart-total {
   text-align: right;
-  color: #32144f;
+  color: #f7efff;
   font-weight: 800;
 }
 
@@ -1694,9 +1759,9 @@ code {
 .feed-chips button {
   border-radius: 999px;
   padding: 8px 14px;
-  background: #fff;
-  color: #4b1f87;
-  border: 1px solid #e6ddf2;
+  background: rgba(255, 255, 255, 0.075);
+  color: #d9c9ff;
+  border: 1px solid rgba(188, 151, 255, 0.18);
   font-size: 13px;
   font-weight: 600;
 }
@@ -1718,9 +1783,9 @@ code {
   flex-direction: column;
   border-radius: 12px;
   overflow: hidden;
-  border: 1px solid #e6ddf2;
-  background: #fff;
-  box-shadow: 0 14px 40px rgba(62, 34, 91, 0.1);
+  border: 1px solid rgba(188, 151, 255, 0.16);
+  background: rgba(255, 255, 255, 0.065);
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.18);
 }
 
 .feed-card-cover {
@@ -1758,13 +1823,13 @@ code {
 
 .feed-card-body h3 {
   margin: 0;
-  color: #2f0f52;
+  color: #f7efff;
   font-size: 17px;
 }
 
 .feed-card-body p {
   margin: 0;
-  color: #65576f;
+  color: #c9b8dc;
   font-size: 13px;
   line-height: 1.45;
   display: -webkit-box;
@@ -1781,12 +1846,12 @@ code {
 }
 
 .feed-card-meta strong {
-  color: #351256;
+  color: #f7efff;
   font-size: 18px;
 }
 
 .feed-card-meta small {
-  color: #7b6d87;
+  color: #a997bf;
   font-size: 12px;
 }
 
