@@ -23,7 +23,7 @@ public class CategoryController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<CategoryResponse> findById(@PathVariable String name) {
-        return ResponseEntity.ok(categoryService.findByName(name));
+    public ResponseEntity<CategoryResponse> findById(@PathVariable String id) {
+        return ResponseEntity.ok(categoryService.findByName(id));
     }
 }
