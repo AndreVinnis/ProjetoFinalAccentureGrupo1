@@ -18,6 +18,8 @@ public interface InvoiceRepository extends JpaRepository<Invoice, Long> {
 
     List<Invoice> findByCardIdOrderByReferenceMonthDesc(Long cardId);
 
+    List<Invoice> findByStatusOrderByClosingDateAsc(InvoiceStatus status);
+
     List<Invoice> findByStatusAndDueDateLessThanEqual(InvoiceStatus invoiceStatus, LocalDate today);
 
     List<Invoice> findByStatusAndClosingDateLessThanEqual(InvoiceStatus invoiceStatus, LocalDate today);

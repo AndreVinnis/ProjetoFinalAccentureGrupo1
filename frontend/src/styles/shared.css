@@ -2501,9 +2501,309 @@ code {
   margin-top: 3px;
 }
 
+.bank-admin-workspace {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  padding: 22px;
+  border-radius: 8px;
+  background:
+    radial-gradient(circle at 10% 0%, rgba(114, 53, 209, 0.22), transparent 28%),
+    radial-gradient(circle at 92% 4%, rgba(34, 183, 162, 0.14), transparent 24%),
+    linear-gradient(180deg, #13091f, #09050f);
+}
+
+.bank-admin-workspace .panel,
+.bank-admin-hero {
+  border-color: rgba(188, 151, 255, 0.14);
+  background: rgba(255, 255, 255, 0.06);
+  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.18);
+}
+
+.bank-admin-workspace .panel {
+  position: relative;
+  overflow: hidden;
+}
+
+.bank-admin-workspace .panel::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.06), transparent 32%);
+  opacity: 0.62;
+}
+
+.bank-admin-workspace .panel > * {
+  position: relative;
+  z-index: 1;
+}
+
+.bank-admin-workspace .panel:has(.table-wrap),
+.bank-admin-workspace .panel:has(.bank-admin-actions),
+.bank-admin-hero,
+.bank-admin-feedback {
+  grid-column: 1 / -1;
+}
+
+.bank-admin-workspace .panel h2,
+.bank-admin-workspace h3 {
+  color: #f7efff;
+}
+
+.bank-admin-workspace .panel p,
+.bank-admin-workspace label {
+  color: #c9b8dc;
+}
+
+.bank-admin-workspace input,
+.bank-admin-workspace select,
+.bank-admin-workspace textarea {
+  color: #f7efff;
+  background: rgba(255, 255, 255, 0.075);
+  border-color: rgba(188, 151, 255, 0.18);
+}
+
+.bank-admin-workspace input::placeholder,
+.bank-admin-workspace textarea::placeholder {
+  color: #a997bf;
+}
+
+.bank-admin-workspace input:hover,
+.bank-admin-workspace select:hover,
+.bank-admin-workspace textarea:hover {
+  border-color: rgba(207, 178, 255, 0.34);
+  background: rgba(255, 255, 255, 0.11);
+}
+
+.bank-admin-workspace select option {
+  color: #f7efff;
+  background: #24103d;
+}
+
+.bank-admin-workspace th {
+  color: #d7c6ee;
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.bank-admin-workspace td {
+  color: #f7efff;
+}
+
+.bank-admin-workspace td,
+.bank-admin-workspace th {
+  border-bottom-color: rgba(255, 255, 255, 0.1);
+}
+
+.bank-admin-workspace .empty-state {
+  color: #c9b8dc;
+}
+
+.bank-admin-hero {
+  min-height: 252px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(340px, 520px);
+  align-items: stretch;
+  gap: 20px;
+  padding: 28px;
+  border-radius: 8px;
+  color: #f7efff;
+  background:
+    radial-gradient(circle at 84% 12%, rgba(34, 183, 162, 0.18), transparent 24%),
+    radial-gradient(circle at 18% 0%, rgba(139, 63, 252, 0.32), transparent 34%),
+    linear-gradient(145deg, rgba(31, 12, 58, 0.98), rgba(9, 5, 15, 0.98));
+  box-shadow: 0 20px 54px rgba(0, 0, 0, 0.26);
+}
+
+.bank-admin-hero > div:first-child {
+  display: grid;
+  align-content: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.bank-admin-hero span,
+.bank-admin-metrics small,
+.bank-admin-card span {
+  color: #c9a7ff;
+  font-size: 12px;
+  font-weight: 850;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.bank-admin-hero h2 {
+  max-width: 760px;
+  color: #fff;
+  font-size: 34px;
+  line-height: 1.08;
+}
+
+.bank-admin-hero p {
+  max-width: 650px;
+  color: #cfc0df;
+}
+
+.bank-admin-metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  min-width: 0;
+}
+
+.bank-admin-metrics article {
+  display: grid;
+  align-content: center;
+  justify-items: start;
+  gap: 10px;
+  min-height: 112px;
+  padding: 16px;
+  border: 1px solid rgba(207, 178, 255, 0.18);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.075);
+  min-width: 0;
+}
+
+.bank-admin-metrics strong {
+  color: #fff;
+  font-size: clamp(20px, 2.2vw, 28px);
+  line-height: 1;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+.bank-admin-icon {
+  position: relative;
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  color: #22b7a2;
+}
+
+.bank-admin-icon-account {
+  border: 2px solid currentColor;
+  border-radius: 50% 50% 7px 7px;
+}
+
+.bank-admin-icon-account::before {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 5px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.bank-admin-icon-balance {
+  border: 2px solid currentColor;
+  border-radius: 6px;
+}
+
+.bank-admin-icon-balance::before {
+  content: '';
+  position: absolute;
+  inset: 5px 3px auto;
+  height: 2px;
+  border-radius: 999px;
+  background: currentColor;
+  box-shadow: 0 5px 0 currentColor;
+}
+
+.bank-admin-icon-alert {
+  width: 0;
+  height: 0;
+  border-left: 10px solid transparent;
+  border-right: 10px solid transparent;
+  border-bottom: 18px solid currentColor;
+}
+
+.bank-admin-icon-alert::before {
+  content: '';
+  position: absolute;
+  top: 6px;
+  left: -1px;
+  width: 2px;
+  height: 6px;
+  background: #13091f;
+  box-shadow: 0 8px 0 #13091f;
+}
+
+.bank-admin-icon-transfer {
+  border-top: 3px solid currentColor;
+  border-bottom: 3px solid currentColor;
+}
+
+.bank-admin-icon-transfer::before,
+.bank-admin-icon-transfer::after {
+  content: '';
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  border-top: 3px solid currentColor;
+  border-right: 3px solid currentColor;
+}
+
+.bank-admin-icon-transfer::before {
+  top: -6px;
+  right: 0;
+  transform: rotate(45deg);
+}
+
+.bank-admin-icon-transfer::after {
+  bottom: -6px;
+  left: 0;
+  transform: rotate(225deg);
+}
+
+.bank-admin-actions {
+  display: grid;
+  gap: 12px;
+}
+
+.bank-admin-actions {
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+
+.bank-admin-card {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid rgba(188, 151, 255, 0.16);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.055);
+}
+
+.bank-admin-card strong {
+  color: #f7efff;
+  font-size: 18px;
+}
+
+.bank-admin-card button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.bank-admin-cycle-card {
+  align-content: stretch;
+}
+
+.bank-account-actions {
+  flex-wrap: wrap;
+}
+
+.bank-account-actions button {
+  white-space: nowrap;
+}
+
 @media (max-width: 900px) {
   .admin-store-hero,
-  .ecommerce-admin-workspace {
+  .ecommerce-admin-workspace,
+  .bank-admin-hero,
+  .bank-admin-workspace {
     grid-template-columns: 1fr;
   }
 
@@ -2513,7 +2813,9 @@ code {
   .admin-inventory-head,
   .admin-inventory-row,
   .admin-product-strip article,
-  .admin-category-list article {
+  .admin-category-list article,
+  .bank-admin-metrics,
+  .bank-admin-actions {
     grid-template-columns: 1fr;
   }
 

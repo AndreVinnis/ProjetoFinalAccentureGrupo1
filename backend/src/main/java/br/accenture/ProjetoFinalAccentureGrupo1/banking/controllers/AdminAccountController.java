@@ -1,9 +1,10 @@
 package br.accenture.ProjetoFinalAccentureGrupo1.banking.controllers;
 
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.domain.Account;
-import br.accenture.ProjetoFinalAccentureGrupo1.banking.domain.Transaction;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.dto.AccountResponse;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.dto.DepositRequest;
+import br.accenture.ProjetoFinalAccentureGrupo1.banking.dto.InvoiceResponse;
+import br.accenture.ProjetoFinalAccentureGrupo1.banking.dto.TransactionResponse;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.services.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -30,8 +31,13 @@ public class AdminAccountController {
     }
 
     @GetMapping("/accounts/transactions")
-    public List<Transaction> getAllTransactions() {
+    public List<TransactionResponse> getAllTransactions() {
         return transactionService.findAll();
+    }
+
+    @GetMapping("/billing/invoices/open")
+    public List<InvoiceResponse> getOpenInvoices() {
+        return invoiceService.listOpenInvoicesForAdmin();
     }
 
     @PostMapping("/accounts/{id}/deposit")
