@@ -151,6 +151,10 @@ public class CartService {
         CartItem item = cartItemRepository.findByCart_IdAndProduct_Id(cart.getId(), productId)
                 .orElseThrow(() -> new CartItemNotFoundException(productId));
 
+        if(cart.getStatus() == CartStatus.RESERVED){
+            throw new CartAlreadyClosed(cart.getId());
+        }
+
         cart.getItems().remove(item);
         cartRepository.save(cart);
         return toResponse(cart);
@@ -238,6 +242,6 @@ public class CartService {
                 .reduce(BigDecimal.ZERO, BigDecimal::add)
                 .setScale(2, RoundingMode.HALF_UP);
 
-        return new CartResponse(cart.getId(), lines, subtotal);
+        return new CartResponse(cart.getId(), lines, subtotal, cart.getStatus());
     }
 }
