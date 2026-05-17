@@ -24,6 +24,12 @@ function normalizeCardPayload(card) {
   return card?.card || card?.data || card?.content || card
 }
 
+function formatTier(tier) {
+  if (!tier) return 'ACC'
+  const label = String(tier).toLowerCase()
+  return `ACC ${label.charAt(0).toUpperCase()}${label.slice(1)}`
+}
+
 export function CustomerBank({ api }) {
   const [data, setData] = useState({})
   const [deposit, setDeposit] = useState({ amount: '', description: '' })
@@ -40,7 +46,7 @@ export function CustomerBank({ api }) {
 
   const refresh = useCallback(async () => {
     const silent = { silent: true }
-    const [account, balance, limit, purchases, invoices, currentInvoice, transactions] = await Promise.allSettled([
+    const [account, balance, limit, purchases, invoices, currentInvoice, transactions, customer] = await Promise.allSettled([
       api.get('/banking/accounts/me', silent),
       api.get('/banking/accounts/me/balance', silent),
       api.get('/banking/cards/me/limit', silent),
@@ -48,6 +54,7 @@ export function CustomerBank({ api }) {
       api.get('/banking/invoices', silent),
       api.get('/banking/invoices/current', silent),
       api.get('/banking/accounts/me/transactions', silent),
+      api.get('/customers/me', silent),
     ])
     setData((current) => ({
       ...current,
@@ -58,6 +65,7 @@ export function CustomerBank({ api }) {
       invoices: settled(invoices, []),
       currentInvoice: settled(currentInvoice),
       transactions: settled(transactions, []),
+      customer: settled(customer),
     }))
   }, [api])
 
@@ -196,7 +204,7 @@ export function CustomerBank({ api }) {
         <button className={`credit-card-visual ${cardRevealed ? 'revealed' : ''}`} type="button" onClick={toggleCardReveal} aria-label={cardRevealed ? 'Ocultar dados do cartao' : 'Mostrar dados do cartao'}>
           <div className="card-face card-front">
             <div className="card-chip" />
-            <span>ACC Platinum</span>
+            <span>{formatTier(data.customer?.tier)}</span>
             <strong>{maskCard(cardNumber)}</strong>
             <div>
               <small>{cardHolder}</small>
