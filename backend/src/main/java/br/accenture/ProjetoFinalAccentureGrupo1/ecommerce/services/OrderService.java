@@ -280,7 +280,6 @@ public class OrderService {
         }
         else{
             String defaultDescription = "Estorno referente a compra no ecommerce";
-            bankingFacade.cancelPaymentRequest(orderPrefix + orderId);
             order.setCancelledAt(Instant.now());
             bankingFacade.issueRefund((customerService.findByEmail(customerEmail).getUserId()),
                     order.getTotalAmount(),
