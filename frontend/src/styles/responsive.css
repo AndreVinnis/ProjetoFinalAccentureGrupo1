@@ -31,6 +31,15 @@
     grid-template-columns: repeat(2, minmax(120px, 1fr));
   }
 
+  .store-searchbar {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+
+  .store-searchbar small {
+    white-space: normal;
+  }
+
   .auth-stage {
     grid-template-columns: 1fr;
     max-width: 680px;
