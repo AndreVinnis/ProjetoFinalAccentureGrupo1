@@ -3,7 +3,12 @@ export interface Product {
     name: string;
     description: string;
     price: number;
-    avaliableStock: number;
+    totalStock?: number;
+    reservedStock?: number;
+    availableStock?: number;
+    avaliableStock?: number;
+    active?: boolean;
+    createdAt?: string;
     categoryId: number;
     categoryName: string;
 }

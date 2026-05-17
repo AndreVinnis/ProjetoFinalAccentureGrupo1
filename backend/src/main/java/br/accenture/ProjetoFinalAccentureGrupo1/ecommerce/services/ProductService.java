@@ -2,6 +2,7 @@ package br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.services;
 
 import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.domain.Category;
 import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.domain.Product;
+import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.dto.AdminProductResponse;
 import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.dto.ProductResponse;
 import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.repository.ProductRepository;
 import lombok.RequiredArgsConstructor;
@@ -45,6 +46,11 @@ public class  ProductService {
         return products.map(this::toProductResponse);
     }
 
+    @Transactional(readOnly = true)
+    public Page<AdminProductResponse> listProductsForAdmin(Pageable pageable) {
+        return productRepository.findAll(pageable).map(this::toAdminProductResponse);
+    }
+
     // Método auxiliar privado no final do Service
     private ProductResponse toProductResponse(Product product) {
         return new ProductResponse(
@@ -53,6 +59,22 @@ public class  ProductService {
                 product.getDescription(),
                 product.getPrice(),
                 product.getAvailableStock(), // Usando o método @Transient que criamos
+                product.getCategory().getId(),
+                product.getCategory().getName()
+        );
+    }
+
+    private AdminProductResponse toAdminProductResponse(Product product) {
+        return new AdminProductResponse(
+                product.getId(),
+                product.getName(),
+                product.getDescription(),
+                product.getPrice(),
+                product.getTotalStock(),
+                product.getReservedStock(),
+                product.getAvailableStock(),
+                product.isActive(),
+                product.getCreatedAt(),
                 product.getCategory().getId(),
                 product.getCategory().getName()
         );
