@@ -318,7 +318,7 @@ export function Profile({ api }: { api: ApiClient }) {
           <p
             style={{
               margin: 0,
-              color: '#65576f',
+              color: '#c9b8dc',
               fontSize: '14px',
               lineHeight: '1.5'
             }}

@@ -22,7 +22,7 @@ export function AdminEcommerce({ api }: { api: ApiClient }) {
   return (
     <div className="dashboard-grid admin ecommerce">
       <Panel title="Administração da Loja">
-        <p style={{ color: '#65576f' }}>Ações de gerencialmento de produtos, reposição de estoque, etc.</p>
+        <p>Ações de gerencialmento de produtos, reposição de estoque, etc.</p>
         {/* Adicione os forms de produtos/categorias aqui depois */}
       </Panel>
       

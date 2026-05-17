@@ -1,17 +1,17 @@
 .cart-row {
-    color: #3a2e45;
-    background: #fbf9fe;
+    color: #d9c9ff;
+    background: rgba(255, 255, 255, 0.065);
     transition: border-color 0.2s ease, background 0.2s ease;
 }
 
 .cart-row:hover {
-    background: #f5f0fd;
-    border-color: #c9b8dc;
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(207, 178, 255, 0.34);
 }
 
 .cart-row span,
 .cart-row strong {
-    color: #2f124b;
+    color: #f7efff;
     font-weight: 600;
 }
 
@@ -21,19 +21,19 @@
     gap: 12px;
     margin-top: 24px;
     padding-top: 20px;
-    border-top: 1px solid #e7def0;
+    border-top: 1px solid rgba(188, 151, 255, 0.14);
 }
 
 .panel>.button-row button:not(:last-child) {
-    background: #f5f0fd;
-    color: #5b2dae;
-    border: 1px solid #d7cae7;
+    background: rgba(255, 255, 255, 0.075);
+    color: #d9c9ff;
+    border: 1px solid rgba(188, 151, 255, 0.18);
     box-shadow: none;
 }
 
 .panel>.button-row button:not(:last-child):hover {
-    background: #ede4ff;
-    border-color: #cdb7ff;
+    background: rgba(139, 63, 252, 0.18);
+    border-color: rgba(207, 178, 255, 0.34);
 }
 
 .panel>form.inline-form {
@@ -43,7 +43,7 @@
     align-items: center;
     margin-top: 16px;
     padding-top: 16px;
-    border-top: 1px dashed #e7def0;
+    border-top: 1px dashed rgba(188, 151, 255, 0.22);
 }
 
 .panel>.button-row button:last-child {
@@ -64,7 +64,7 @@
 
 .cart-row>*:first-child small,
 .cart-row>*:first-child span:not(:first-child) {
-    color: #7b6d87;
+    color: #a997bf;
     font-size: 13px;
     font-weight: 500;
     margin-left: 4px;
