@@ -291,9 +291,7 @@ function App() {
             path="/admin/ecommerce"
             element={
               <RequireAdmin>
-                <div className="dashboard-grid">
-                  <AdminEcommerce api={api} />
-              </div>
+                <AdminEcommerce api={api} />
               </RequireAdmin>
             }
           />
