@@ -120,6 +120,13 @@ public class  ProductService {
     }
 
     @Transactional
+    public void activate(Long id) {
+        Product product = findById(id);
+        product.setActive(true);
+        productRepository.save(product);
+    }
+
+    @Transactional
     public Product restock(Long id, int quantity) {
         if (quantity <= 0) {
             throw new IllegalArgumentException("A quantidade de reabastecimento deve ser maior que zero.");

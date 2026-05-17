@@ -20,7 +20,7 @@ public class ProductController {
 
     // Lista os produtos ativos (vitrine). Pode filtrar por categoria se passar o ID na URL
     @GetMapping
-    @PreAuthorize("hasRole('CUSTOMER')")
+    @PreAuthorize("hasAnyRole('CUSTOMER', 'ECOMMERCE_ADMIN')")
     public ResponseEntity<Page<ProductResponse>> listProducts(
             @RequestParam(required = false) String categoryName,
             @RequestParam(required = false) BigDecimal maxPrice,
@@ -29,7 +29,7 @@ public class ProductController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasRole('CUSTOMER')")
+    @PreAuthorize("hasAnyRole('CUSTOMER', 'ECOMMERCE_ADMIN')")
     public ResponseEntity<Product> getProductDetails(@PathVariable Long id) {
         return ResponseEntity.ok(productService.findById(id));
     }

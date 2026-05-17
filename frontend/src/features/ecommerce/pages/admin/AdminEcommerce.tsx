@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import { Panel } from '../../../../components/ui/Panel'
 import { TablePanel } from '../../../../components/ui/Table'
@@ -60,6 +60,8 @@ const emptyCategoryForm: CategoryForm = {
 }
 
 export function AdminEcommerce({ api }: { api: ApiClient }) {
+  const editProductRef = useRef<HTMLElement | null>(null)
+  const stockPanelRef = useRef<HTMLElement | null>(null)
   const [emails, setEmails] = useState<EmailLog[]>([])
   const [products, setProducts] = useState<Product[]>([])
   const [categories, setCategories] = useState<Category[]>([])
@@ -68,6 +70,7 @@ export function AdminEcommerce({ api }: { api: ApiClient }) {
   const [categoryForm, setCategoryForm] = useState<CategoryForm>(emptyCategoryForm)
   const [stockAction, setStockAction] = useState({ productId: '', quantity: '' })
   const [feedback, setFeedback] = useState('')
+  const [productsLoadError, setProductsLoadError] = useState('')
   const [busyAction, setBusyAction] = useState('')
   const totalAvailableStock = useMemo(
     () => products.reduce((total, product) => total + getAvailableStock(product), 0),
@@ -80,15 +83,19 @@ export function AdminEcommerce({ api }: { api: ApiClient }) {
   )
 
   const refresh = useCallback(async () => {
-    const [emailPage, productPage, categoryList] = await Promise.allSettled([
+    const [emailPage, adminProductPage, publicProductPage, categoryList] = await Promise.allSettled([
       api.get<Page<EmailLog>>('/admin/notifications/emails', { silent: true }),
       api.get<Page<Product>>('/ecommerce/admin/products?size=100', { silent: true }),
+      api.get<Page<Product>>('/ecommerce/products?size=100', { silent: true }),
       api.get<Category[]>('/ecommerce/categories', { silent: true })
     ])
 
+    const productData = settled(adminProductPage) ?? settled(publicProductPage)
+
     setEmails(settled(emailPage)?.content ?? [])
-    setProducts(settled(productPage)?.content ?? [])
+    setProducts(productData?.content ?? [])
     setCategories(settled(categoryList, []) ?? [])
+    setProductsLoadError(productData ? '' : 'Nao foi possivel consultar produtos. Reinicie o backend para carregar o novo endpoint admin.')
   }, [api])
 
   useEffect(() => {
@@ -160,6 +167,22 @@ export function AdminEcommerce({ api }: { api: ApiClient }) {
     })
   }
 
+  async function activateProduct(productId: number | string) {
+    await runAction(`activate-${productId}`, async () => {
+      await api.post(`/ecommerce/admin/products/${productId}/activate`)
+      setFeedback('Produto ativado.')
+    })
+  }
+
+  async function toggleProductStatus(product: Product) {
+    if (product.active === false) {
+      await activateProduct(product.id)
+      return
+    }
+
+    await deactivateProduct(product.id)
+  }
+
   async function deleteCategory(categoryId: number) {
     await runAction(`delete-category-${categoryId}`, async () => {
       await api.delete(`/ecommerce/admin/categories/${categoryId}`)
@@ -187,6 +210,16 @@ export function AdminEcommerce({ api }: { api: ApiClient }) {
       initialStock: String(getAvailableStock(product)),
       categoryName: product.categoryName
     })
+  }
+
+  function goToProductEdit(product: Product) {
+    fillProductEdit(product)
+    scrollToSection(editProductRef.current)
+  }
+
+  function goToRestock(product: Product) {
+    setStockAction({ productId: String(product.id), quantity: '' })
+    scrollToSection(stockPanelRef.current)
   }
 
   function fillCategoryEdit(category: Category) {
@@ -269,15 +302,15 @@ export function AdminEcommerce({ api }: { api: ApiClient }) {
                   {product.active === false ? 'Inativo' : availableStock <= 5 ? 'Baixo estoque' : 'Ativo'}
                 </span>
                 <div className="button-row tight admin-inventory-actions">
-                  <button type="button" onClick={() => fillProductEdit(product)}>Editar</button>
-                  <button type="button" onClick={() => setStockAction({ productId: String(product.id), quantity: '' })}>Repor</button>
+                  <button type="button" onClick={() => goToProductEdit(product)}>Editar</button>
+                  <button type="button" onClick={() => goToRestock(product)}>Repor</button>
                   <button
                     type="button"
-                    className="danger-button"
-                    onClick={() => deactivateProduct(product.id)}
-                    disabled={product.active === false || busyAction === `deactivate-${product.id}`}
+                    className={product.active === false ? '' : 'danger-button'}
+                    onClick={() => toggleProductStatus(product)}
+                    disabled={busyAction === `deactivate-${product.id}` || busyAction === `activate-${product.id}`}
                   >
-                    Desativar
+                    {product.active === false ? 'Ativar' : 'Desativar'}
                   </button>
                 </div>
               </article>
@@ -285,7 +318,7 @@ export function AdminEcommerce({ api }: { api: ApiClient }) {
           })}
 
           {!products.length ? (
-            <p className="empty-state">Nenhum produto carregado. Verifique se o backend esta ativo e se a conta tem permissao de admin ecommerce.</p>
+            <p className="empty-state">{productsLoadError || 'Nenhum produto cadastrado no ecommerce.'}</p>
           ) : null}
         </div>
       </Panel>
@@ -352,7 +385,7 @@ export function AdminEcommerce({ api }: { api: ApiClient }) {
         </form>
       </Panel>
 
-      <Panel title="Editar produto">
+      <Panel title="Editar produto" panelRef={editProductRef}>
         <form className="admin-commerce-form" onSubmit={submitProductEdit}>
           <label>
             ID
@@ -411,7 +444,7 @@ export function AdminEcommerce({ api }: { api: ApiClient }) {
         </form>
       </Panel>
 
-      <Panel title="Estoque e status">
+      <Panel title="Estoque e status" panelRef={stockPanelRef}>
         <form className="admin-commerce-form admin-stock-form" onSubmit={restockProduct}>
           <label>
             Produto
@@ -456,11 +489,19 @@ export function AdminEcommerce({ api }: { api: ApiClient }) {
           </button>
           <button
             type="button"
-            className="danger-button"
-            disabled={!stockAction.productId || busyAction === `deactivate-${stockAction.productId}`}
-            onClick={() => deactivateProduct(stockAction.productId)}
+            className={selectedStockProduct(products, stockAction.productId)?.active === false ? '' : 'danger-button'}
+            disabled={!stockAction.productId || busyAction === `deactivate-${stockAction.productId}` || busyAction === `activate-${stockAction.productId}`}
+            onClick={() => {
+              const product = selectedStockProduct(products, stockAction.productId)
+
+              if (product) {
+                void toggleProductStatus(product)
+              } else {
+                void deactivateProduct(stockAction.productId)
+              }
+            }}
           >
-            Desativar ID
+            {selectedStockProduct(products, stockAction.productId)?.active === false ? 'Ativar ID' : 'Desativar ID'}
           </button>
         </form>
 
@@ -472,14 +513,15 @@ export function AdminEcommerce({ api }: { api: ApiClient }) {
                 <strong>{product.name}</strong>
                 <span>{money(product.price)} · {getAvailableStock(product)} em estoque</span>
               </div>
-              <button type="button" onClick={() => fillProductEdit(product)}>Editar</button>
+              <button type="button" onClick={() => goToProductEdit(product)}>Editar</button>
+              <button type="button" onClick={() => goToRestock(product)}>Repor</button>
               <button
                 type="button"
-                className="danger-button"
-                onClick={() => deactivateProduct(product.id)}
-                disabled={busyAction === `deactivate-${product.id}`}
+                className={product.active === false ? '' : 'danger-button'}
+                onClick={() => toggleProductStatus(product)}
+                disabled={busyAction === `deactivate-${product.id}` || busyAction === `activate-${product.id}`}
               >
-                Desativar
+                {product.active === false ? 'Ativar' : 'Desativar'}
               </button>
             </article>
           ))}
@@ -574,4 +616,17 @@ function getTotalStock(product: Product) {
 
 function getReservedStock(product: Product) {
   return product.reservedStock ?? 0
+}
+
+function selectedStockProduct(products: Product[], productId: string) {
+  return products.find((product) => String(product.id) === productId)
+}
+
+function scrollToSection(section: HTMLElement | null) {
+  window.setTimeout(() => {
+    section?.scrollIntoView({
+      behavior: 'smooth',
+      block: 'start'
+    })
+  }, 0)
 }

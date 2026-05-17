@@ -2462,7 +2462,7 @@ code {
 }
 
 .admin-product-strip article {
-  grid-template-columns: 62px minmax(0, 1fr) auto auto;
+  grid-template-columns: 62px minmax(0, 1fr) auto auto auto;
 }
 
 .admin-product-strip img {
