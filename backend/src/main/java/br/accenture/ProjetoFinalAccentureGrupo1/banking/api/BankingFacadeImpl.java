@@ -53,13 +53,18 @@ public class BankingFacadeImpl implements BankingFacade {
     }
 
     @Override
-    public void chargeCard(Long cardId, BigDecimal amount, String cvv, String description, String reference) {
-        creditCardService.chargeCard(cardId, amount, cvv, description, reference);
+    public void chargeCard(Long cardId, BigDecimal amount, String cvv, String description, String reference, int installments) {
+        creditCardService.chargeCard(cardId, amount, cvv, description, reference, installments);
     }
 
     @Override
     public void issueRefund(Long toUserId, BigDecimal amount, String reference, String description) {
         accountService.refund(toUserId, amount, reference, description);
+    }
+
+    @Override
+    public BigDecimal cancelCardPurchase(String reference, String description) {
+        return creditCardService.cancelPurchase(reference, description);
     }
 
     @Override

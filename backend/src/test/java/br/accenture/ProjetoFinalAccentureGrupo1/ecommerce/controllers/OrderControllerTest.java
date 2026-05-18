@@ -2,6 +2,7 @@ package br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.controllers;
 
 import br.accenture.ProjetoFinalAccentureGrupo1.auth.security.JwtAuthenticationFilter;
 import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.dto.CheckoutCardRequest;
+import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.dto.InstallmentOptionResponse;
 import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.dto.OrderResponse;
 import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.enums.OrderStatus;
 import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.enums.PaymentMethod;
@@ -107,8 +108,8 @@ class OrderControllerTest {
     @DisplayName("POST /ecommerce/orders/checkout/card retorna 200 com pedido criado")
     @WithMockUser(username = EMAIL, roles = "CUSTOMER")
     void checkoutCard_returns200() throws Exception {
-        CheckoutCardRequest request = new CheckoutCardRequest(5L, "123");
-        when(orderService.checkoutCard(EMAIL, 5L, "123"))
+        CheckoutCardRequest request = new CheckoutCardRequest(5L, "123", 3);
+        when(orderService.checkoutCard(EMAIL, 5L, "123", 3))
                 .thenReturn(orderResponse(7L, OrderStatus.PAID, PaymentMethod.CREDIT_CARD));
 
         mockMvc.perform(post("/ecommerce/orders/checkout/card")
@@ -117,6 +118,24 @@ class OrderControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.orderId").value(7))
                 .andExpect(jsonPath("$.paymentMethod").value("CREDIT_CARD"));
+    }
+
+    @Test
+    @DisplayName("GET /ecommerce/orders/checkout/card/installments retorna opcoes")
+    @WithMockUser(username = EMAIL, roles = "CUSTOMER")
+    void listCardInstallments_returns200() throws Exception {
+        when(orderService.listCardInstallments(EMAIL))
+                .thenReturn(List.of(new InstallmentOptionResponse(
+                        3,
+                        new BigDecimal("33.33"),
+                        new BigDecimal("100.00"),
+                        "3x de R$ 33.33 sem juros"
+                )));
+
+        mockMvc.perform(get("/ecommerce/orders/checkout/card/installments"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].installments").value(3))
+                .andExpect(jsonPath("$[0].totalAmount").value(100.00));
     }
 
     @Test

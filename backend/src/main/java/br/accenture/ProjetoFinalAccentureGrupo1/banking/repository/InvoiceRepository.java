@@ -14,6 +14,8 @@ public interface InvoiceRepository extends JpaRepository<Invoice, Long> {
 
     Optional<Invoice> findByCardIdAndStatus(Long cardId, InvoiceStatus status);
 
+    Optional<Invoice> findFirstByCardIdAndStatusOrderByReferenceMonthAsc(Long cardId, InvoiceStatus status);
+
     Optional<Invoice> findByCardIdAndReferenceMonth(Long cardId, YearMonth referenceMonth);
 
     List<Invoice> findByCardIdOrderByReferenceMonthDesc(Long cardId);

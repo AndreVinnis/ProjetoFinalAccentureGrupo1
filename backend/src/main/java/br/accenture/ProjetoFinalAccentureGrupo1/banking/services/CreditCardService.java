@@ -11,6 +11,7 @@ import br.accenture.ProjetoFinalAccentureGrupo1.banking.dto.CardValidationRespon
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.dto.CreditCardResponse;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.dto.CreditLimitResponse;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.enums.CreditCardStatus;
+import br.accenture.ProjetoFinalAccentureGrupo1.banking.enums.InvoiceStatus;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.events.PaymentReceivedEvent;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.exceptions.*;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.repository.CardPurchaseRepository;
@@ -23,9 +24,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.YearMonth;
 import java.util.List;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -92,23 +96,46 @@ public class CreditCardService {
 
     @Transactional
     public void chargeCard(Long cardId, BigDecimal amount, String cvv, String description, String refence) {
+        chargeCard(cardId, amount, cvv, description, refence, 1);
+    }
+
+    @Transactional
+    public void chargeCard(Long cardId, BigDecimal amount, String cvv, String description, String refence, int installments) {
         CreditCard card = creditCardRepository.findById(cardId).orElseThrow(()
             -> new CardNotFoundException(cardId));
+        validateInstallments(installments);
         validateCardCanPurchase(card,amount, cvv);
 
         Invoice currentInvoice = invoiceService.getOrCreateOpenInvoice(card);
+        YearMonth firstReferenceMonth = currentInvoice.getReferenceMonth();
+        String installmentGroupId = UUID.randomUUID().toString();
+        List<BigDecimal> installmentAmounts = splitInstallments(amount, installments);
 
-        CardPurchase cardPurchase = CardPurchase.builder()
-                .card(card)
-                .invoice(currentInvoice)
-                .amount(amount)
-                .description(description)
-                .reference(refence)
-                .build();
+        for (int index = 0; index < installments; index++) {
+            Invoice invoice = index == 0
+                    ? currentInvoice
+                    : invoiceService.getOrCreateOpenInvoice(card, firstReferenceMonth.plusMonths(index));
+            int installmentNumber = index + 1;
+            String installmentDescription = installments == 1
+                    ? description
+                    : description + " (" + installmentNumber + "/" + installments + ")";
+
+            CardPurchase cardPurchase = CardPurchase.builder()
+                    .card(card)
+                    .invoice(invoice)
+                    .amount(installmentAmounts.get(index))
+                    .description(installmentDescription)
+                    .reference(refence)
+                    .installmentNumber(installmentNumber)
+                    .installmentTotal(installments)
+                    .installmentGroupId(installmentGroupId)
+                    .build();
+
+            invoiceService.addCardPurchase(invoice, cardPurchase);
+            cardPurchaseRepository.save(cardPurchase);
+        }
 
         card.setAvailableLimit(card.getAvailableLimit().subtract(amount));
-        invoiceService.addCardPurchase(currentInvoice, cardPurchase);
-        cardPurchaseRepository.save(cardPurchase);
         creditCardRepository.save(card);
         accountService.creditMerchant(amount, description, refence);
     }
@@ -120,6 +147,43 @@ public class CreditCardService {
                 .stream()
                 .map(this::toPurchaseResponse)
                 .toList();
+    }
+
+    @Transactional
+    public BigDecimal cancelPurchase(String reference, String refundDescription) {
+        List<CardPurchase> purchases = cardPurchaseRepository.findByReferenceOrderByPurchaseDateAsc(reference);
+        if (purchases.isEmpty()) {
+            return BigDecimal.ZERO;
+        }
+
+        CreditCard card = purchases.get(0).getCard();
+        BigDecimal refundAmount = BigDecimal.ZERO;
+        BigDecimal limitToRestore = BigDecimal.ZERO;
+
+        for (CardPurchase purchase : purchases) {
+            Invoice invoice = purchase.getInvoice();
+            BigDecimal paidAmount = calculatePaidPurchaseAmount(invoice, purchase.getAmount());
+            BigDecimal unpaidAmount = purchase.getAmount().subtract(paidAmount);
+
+            refundAmount = refundAmount.add(paidAmount);
+            limitToRestore = limitToRestore.add(unpaidAmount);
+
+            invoice.setTotalAmount(nonNegative(invoice.getTotalAmount().subtract(purchase.getAmount())));
+            invoice.setPaidAmount(nonNegative(invoice.getPaidAmount().subtract(paidAmount)));
+            reconcileInvoiceAfterPurchaseCancellation(invoice);
+            cardPurchaseRepository.delete(purchase);
+        }
+
+        if (limitToRestore.signum() > 0) {
+            card.setAvailableLimit(capAtCreditLimit(card, card.getAvailableLimit().add(limitToRestore)));
+            creditCardRepository.save(card);
+        }
+
+        if (refundAmount.signum() > 0) {
+            accountService.refund(card.getAccount().getUserId(), refundAmount, reference, refundDescription);
+        }
+
+        return refundAmount;
     }
 
     @Transactional
@@ -215,7 +279,73 @@ public class CreditCardService {
                 purchase.getAmount(),
                 purchase.getDescription(),
                 purchase.getReference(),
+                purchase.getInstallmentNumber() == null ? 1 : purchase.getInstallmentNumber(),
+                purchase.getInstallmentTotal() == null ? 1 : purchase.getInstallmentTotal(),
                 purchase.getPurchaseDate()
         );
+    }
+
+    private void validateInstallments(int installments) {
+        if (installments < 1 || installments > 12) {
+            throw new IllegalArgumentException("Parcelamento deve estar entre 1 e 12");
+        }
+    }
+
+    private BigDecimal calculatePaidPurchaseAmount(Invoice invoice, BigDecimal purchaseAmount) {
+        if (invoice.getStatus() == InvoiceStatus.PAID) {
+            return purchaseAmount;
+        }
+
+        if (invoice.getPaidAmount() == null
+                || invoice.getTotalAmount() == null
+                || invoice.getPaidAmount().signum() <= 0
+                || invoice.getTotalAmount().signum() <= 0) {
+            return BigDecimal.ZERO;
+        }
+
+        BigDecimal paidRatio = invoice.getPaidAmount()
+                .divide(invoice.getTotalAmount(), 8, RoundingMode.HALF_EVEN);
+        BigDecimal paidAmount = purchaseAmount.multiply(paidRatio).setScale(2, RoundingMode.HALF_EVEN);
+
+        return paidAmount.min(purchaseAmount);
+    }
+
+    private void reconcileInvoiceAfterPurchaseCancellation(Invoice invoice) {
+        if (invoice.getStatus() == InvoiceStatus.OPEN) {
+            return;
+        }
+
+        if (invoice.getTotalAmount().signum() == 0) {
+            invoice.setPaidAmount(BigDecimal.ZERO);
+            invoice.setStatus(InvoiceStatus.PAID);
+            if (invoice.getPaidAt() == null) {
+                invoice.setPaidAt(Instant.now());
+            }
+            return;
+        }
+
+        if (invoice.getPaidAmount().compareTo(invoice.getTotalAmount()) >= 0) {
+            invoice.setStatus(InvoiceStatus.PAID);
+            if (invoice.getPaidAt() == null) {
+                invoice.setPaidAt(Instant.now());
+            }
+        }
+    }
+
+    private BigDecimal nonNegative(BigDecimal amount) {
+        return amount.signum() < 0 ? BigDecimal.ZERO : amount;
+    }
+
+    private BigDecimal capAtCreditLimit(CreditCard card, BigDecimal amount) {
+        return amount.compareTo(card.getCreditLimit()) > 0 ? card.getCreditLimit() : amount;
+    }
+
+    private List<BigDecimal> splitInstallments(BigDecimal amount, int installments) {
+        BigDecimal baseAmount = amount.divide(BigDecimal.valueOf(installments), 2, RoundingMode.DOWN);
+        BigDecimal remainder = amount.subtract(baseAmount.multiply(BigDecimal.valueOf(installments)));
+
+        return java.util.stream.IntStream.rangeClosed(1, installments)
+                .mapToObj(index -> index == 1 ? baseAmount.add(remainder) : baseAmount)
+                .toList();
     }
 }

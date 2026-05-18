@@ -5,6 +5,7 @@ import br.accenture.ProjetoFinalAccentureGrupo1.auth.api.UserInfo;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.api.BankingFacade;
 import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.domain.*;
 import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.dto.DiscountApplication;
+import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.dto.InstallmentOptionResponse;
 import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.dto.OrderItemResponse;
 import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.dto.OrderResponse;
 import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.enums.CartStatus;
@@ -45,6 +46,7 @@ public class OrderService {
     private static final Logger log = LoggerFactory.getLogger(OrderService.class);
     private static final String orderPrefix = "ORDER-";
     private static final BigDecimal GOLD_CARD_CASHBACK_RATE = new BigDecimal("0.05");
+    private static final int MAX_CARD_INSTALLMENTS = 12;
 
     private final CartService cartService;
     private final CartRepository cartRepository;
@@ -117,7 +119,13 @@ public class OrderService {
 
     @Transactional
     public OrderResponse checkoutCard(String customerEmail, Long savedCardId, String cvv) {
+        return checkoutCard(customerEmail, savedCardId, cvv, 1);
+    }
+
+    @Transactional
+    public OrderResponse checkoutCard(String customerEmail, Long savedCardId, String cvv, int installments) {
         String defaultDescription = "Compra no ecommerce feita pelo cartao de credito";
+        validateInstallments(installments);
 
         Customer customer = customerService.findByEmail(customerEmail);
         Cart cart = cartRepository.findByCustomer_Id(customer.getId()).orElseThrow(
@@ -159,7 +167,8 @@ public class OrderService {
                 totalAmount,
                 cvv,
                 defaultDescription,
-                orderPrefix + order.getId()
+                orderPrefix + order.getId(),
+                installments
         );
         applyGoldCardCashback(customer, totalAmount, order.getId());
 
@@ -181,6 +190,19 @@ public class OrderService {
         ));
         customerService.incrementCompletedOrders(customer.getId());
         return toResponse(order);
+    }
+
+    @Transactional(readOnly = true)
+    public List<InstallmentOptionResponse> listCardInstallments(String customerEmail) {
+        Customer customer = customerService.findByEmail(customerEmail);
+        Cart cart = cartRepository.findByCustomer_Id(customer.getId()).orElseThrow(
+                () -> new CartNotFoundException()
+        );
+        BigDecimal totalAmount = calculateCartSubtotal(cart);
+
+        return java.util.stream.IntStream.rangeClosed(1, MAX_CARD_INSTALLMENTS)
+                .mapToObj(installments -> toInstallmentOption(totalAmount, installments))
+                .toList();
     }
 
     @Transactional
@@ -281,11 +303,8 @@ public class OrderService {
         else{
             String defaultDescription = "Estorno referente a compra no ecommerce";
             order.setCancelledAt(Instant.now());
-            bankingFacade.issueRefund((customerService.findByEmail(customerEmail).getUserId()),
-                    order.getTotalAmount(),
-                    (orderPrefix + orderId),
-                    defaultDescription);
-            refundIssued = true;
+            BigDecimal refundedAmount = refundPaidOrder(order, customer, orderPrefix + orderId, defaultDescription);
+            refundIssued = refundedAmount.signum() > 0;
             for(OrderItem item: order.getItems()){
                 productService.restock(item.getProductId(), item.getQuantity());
             }
@@ -302,6 +321,15 @@ public class OrderService {
                 refundIssued,
                 order.getCancelledAt()
         ));
+    }
+
+    private BigDecimal refundPaidOrder(Order order, Customer customer, String reference, String description) {
+        if (order.getPaymentMethod() == PaymentMethod.CREDIT_CARD) {
+            return bankingFacade.cancelCardPurchase(reference, description);
+        }
+
+        bankingFacade.issueRefund(customer.getUserId(), order.getTotalAmount(), reference, description);
+        return order.getTotalAmount();
     }
 
     @Transactional(readOnly = true)
@@ -427,5 +455,29 @@ public class OrderService {
                 orderPrefix + orderId,
                 "Cashback de 5% referente a compra no cartao de credito"
         );
+    }
+
+    private BigDecimal calculateCartSubtotal(Cart cart) {
+        BigDecimal subTotal = BigDecimal.ZERO;
+        for (CartItem item : cart.getItems()) {
+            subTotal = subTotal.add(item.getUnitPrice().multiply(BigDecimal.valueOf(item.getQuantity())));
+        }
+        return subTotal;
+    }
+
+    private InstallmentOptionResponse toInstallmentOption(BigDecimal totalAmount, int installments) {
+        BigDecimal installmentAmount = totalAmount
+                .divide(BigDecimal.valueOf(installments), 2, RoundingMode.HALF_EVEN);
+        String label = installments == 1
+                ? "A vista - R$ " + totalAmount
+                : installments + "x de R$ " + installmentAmount + " sem juros";
+
+        return new InstallmentOptionResponse(installments, installmentAmount, totalAmount, label);
+    }
+
+    private void validateInstallments(int installments) {
+        if (installments < 1 || installments > MAX_CARD_INSTALLMENTS) {
+            throw new IllegalArgumentException("Parcelamento deve estar entre 1 e " + MAX_CARD_INSTALLMENTS);
+        }
     }
 }

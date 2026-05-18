@@ -12,4 +12,6 @@ public interface CardPurchaseRepository extends JpaRepository<CardPurchase, Long
     List<CardPurchase> findByCardIdOrderByPurchaseDateDesc(Long cardId);
 
     List<CardPurchase> findByInvoiceIdOrderByPurchaseDateDesc(Long invoiceId);
+
+    List<CardPurchase> findByReferenceOrderByPurchaseDateAsc(String reference);
 }

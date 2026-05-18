@@ -112,9 +112,9 @@ class BankingFacadeImplTest {
 
     @Test
     void chargeCard_DeveDelegarParaCreditCardService() {
-        bankingFacade.chargeCard(5L, new BigDecimal("100.00"), "123", "Compra X", "ORDER-1");
+        bankingFacade.chargeCard(5L, new BigDecimal("100.00"), "123", "Compra X", "ORDER-1", 4);
 
-        verify(creditCardService).chargeCard(5L, new BigDecimal("100.00"), "123", "Compra X", "ORDER-1");
+        verify(creditCardService).chargeCard(5L, new BigDecimal("100.00"), "123", "Compra X", "ORDER-1", 4);
     }
 
     @Test
@@ -122,6 +122,17 @@ class BankingFacadeImplTest {
         bankingFacade.issueRefund(10L, new BigDecimal("75.00"), "ORDER-42", "Estorno");
 
         verify(accountService).refund(10L, new BigDecimal("75.00"), "ORDER-42", "Estorno");
+    }
+
+    @Test
+    void cancelCardPurchase_DeveDelegarParaCreditCardService() {
+        when(creditCardService.cancelPurchase("ORDER-42", "Estorno"))
+                .thenReturn(new BigDecimal("33.34"));
+
+        BigDecimal refundedAmount = bankingFacade.cancelCardPurchase("ORDER-42", "Estorno");
+
+        assertEquals(new BigDecimal("33.34"), refundedAmount);
+        verify(creditCardService).cancelPurchase("ORDER-42", "Estorno");
     }
 
     @Test

@@ -36,6 +36,15 @@ public class CardPurchase {
     @Column(length = 120)
     private String reference;
 
+    @Column(name = "installment_number")
+    private Integer installmentNumber;
+
+    @Column(name = "installment_total")
+    private Integer installmentTotal;
+
+    @Column(name = "installment_group_id", length = 80)
+    private String installmentGroupId;
+
     @Column(name = "purchase_date", nullable = false, updatable = false)
     private Instant purchaseDate;
 

@@ -129,7 +129,7 @@ class InvoiceServiceTest {
 
     @Test
     void getOrCreateOpenInvoice_DeveRetornarExistente_QuandoJaTemAberta() {
-        when(invoiceRepository.findByCardIdAndStatus(100L, InvoiceStatus.OPEN))
+        when(invoiceRepository.findFirstByCardIdAndStatusOrderByReferenceMonthAsc(100L, InvoiceStatus.OPEN))
                 .thenReturn(Optional.of(openInvoice));
 
         Invoice result = invoiceService.getOrCreateOpenInvoice(card);
@@ -141,7 +141,7 @@ class InvoiceServiceTest {
     @Test
     void getOrCreateOpenInvoice_DeveCriarNova_QuandoNaoExisteAberta() {
         mockClockToday(LocalDate.of(2026, 5, 10));
-        when(invoiceRepository.findByCardIdAndStatus(100L, InvoiceStatus.OPEN))
+        when(invoiceRepository.findFirstByCardIdAndStatusOrderByReferenceMonthAsc(100L, InvoiceStatus.OPEN))
                 .thenReturn(Optional.empty());
         when(invoiceRepository.findByCardIdAndReferenceMonth(eq(100L), any()))
                 .thenReturn(Optional.empty());
@@ -160,7 +160,7 @@ class InvoiceServiceTest {
     @Test
     void getOrCreateOpenInvoice_DevePularMes_QuandoJaExisteFaturaParaMes() {
         mockClockToday(LocalDate.of(2026, 5, 10));
-        when(invoiceRepository.findByCardIdAndStatus(100L, InvoiceStatus.OPEN))
+        when(invoiceRepository.findFirstByCardIdAndStatusOrderByReferenceMonthAsc(100L, InvoiceStatus.OPEN))
                 .thenReturn(Optional.empty());
         when(invoiceRepository.findByCardIdAndReferenceMonth(100L, YearMonth.of(2026, 5)))
                 .thenReturn(Optional.of(closedInvoice));
@@ -182,7 +182,7 @@ class InvoiceServiceTest {
         when(userFacade.findByEmail("ana@email.com")).thenReturn(userInfo);
         when(accountService.findByUserId(10L)).thenReturn(account);
         when(creditCardRepository.findByAccount(account)).thenReturn(Optional.of(card));
-        when(invoiceRepository.findByCardIdAndStatus(100L, InvoiceStatus.OPEN))
+        when(invoiceRepository.findFirstByCardIdAndStatusOrderByReferenceMonthAsc(100L, InvoiceStatus.OPEN))
                 .thenReturn(Optional.of(openInvoice));
 
         InvoiceResponse response = invoiceService.getCurrentInvoice("ana@email.com");
