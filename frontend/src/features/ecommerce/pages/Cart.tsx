@@ -23,6 +23,7 @@ export function Cart({ api }: { api: ApiClient }) {
   const [productCategories, setProductCategories] = useState<Record<number, string>>({})
   const [checkoutCard, setCheckoutCard] = useState({ savedCardId: '', cvv: '', installments: '1' })
   const [pixModal, setPixModal] = useState({ open: false, loading: false, code: '', copied: false })
+  const [cardSuccessOpen, setCardSuccessOpen] = useState(false)
 
   const refresh = useCallback(async () => {
     const [cartResult, cardsResult, installmentsResult, productsResult] = await Promise.allSettled([
@@ -161,6 +162,7 @@ export function Cart({ api }: { api: ApiClient }) {
     setCards(data.cards)
     setInstallmentOptions(data.installmentOptions)
     setProductCategories(data.productCategories)
+    setCardSuccessOpen(true)
   }
 
   return (
@@ -235,6 +237,21 @@ export function Cart({ api }: { api: ApiClient }) {
                 <button type="button" onClick={copyPixCode}>{pixModal.copied ? 'Copiado' : 'Copiar codigo'}</button>
               </div>
             )}
+          </section>
+        </div>
+      ) : null}
+
+      {cardSuccessOpen ? (
+        <div className="cart-pix-modal-backdrop" role="presentation" onMouseDown={() => setCardSuccessOpen(false)}>
+          <section className="cart-card-success-modal" role="dialog" aria-modal="true" aria-label="Pagamento realizado" onMouseDown={(event) => event.stopPropagation()}>
+            <button className="modal-close-button" type="button" onClick={() => setCardSuccessOpen(false)} aria-label="Fechar modal">x</button>
+            <div className="cart-card-success-content">
+              <span className="cart-card-success-check" aria-hidden="true">✓</span>
+              <span>Cartao aprovado</span>
+              <strong>Pagamento realizado com sucesso</strong>
+              <small>Sua compra foi confirmada e o pedido ja aparece em Meus Pedidos.</small>
+              <button type="button" onClick={() => setCardSuccessOpen(false)}>Fechar</button>
+            </div>
           </section>
         </div>
       ) : null}
