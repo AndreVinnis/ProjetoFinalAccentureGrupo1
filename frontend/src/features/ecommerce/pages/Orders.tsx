@@ -10,6 +10,11 @@ export function Orders({ api }: { api: ApiClient }) {
   const [loading, setLoading] = useState(true)
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null)
   const [orderModalLoading, setOrderModalLoading] = useState(false)
+  const [cancelDialog, setCancelDialog] = useState<{
+    order: Order
+    loading: boolean
+    error: string
+  } | null>(null)
 
   const fetchOrders = useCallback(async () => {
     try {
@@ -63,14 +68,33 @@ export function Orders({ api }: { api: ApiClient }) {
     }
   }, [api])
 
-  async function cancelOrder(orderId: number) {
-    if (
-      !window.confirm(
-        `Deseja realmente cancelar o pedido #${orderId}?`
-      )
-    ) {
+  function requestCancelOrder(order: Order) {
+    setCancelDialog({
+      order,
+      loading: false,
+      error: ''
+    })
+  }
+
+  function closeCancelDialog() {
+    if (cancelDialog?.loading) {
       return
     }
+
+    setCancelDialog(null)
+  }
+
+  async function confirmCancelOrder() {
+    if (!cancelDialog) {
+      return
+    }
+
+    const orderId = cancelDialog.order.orderId
+    setCancelDialog((current) => current ? {
+      ...current,
+      loading: true,
+      error: ''
+    } : current)
 
     try {
       await api.post(
@@ -78,10 +102,13 @@ export function Orders({ api }: { api: ApiClient }) {
       )
 
       await fetchOrders()
+      setCancelDialog(null)
     } catch {
-      alert(
-        'Não foi possível cancelar o pedido. Verifique o status.'
-      )
+      setCancelDialog((current) => current ? {
+        ...current,
+        loading: false,
+        error: 'Nao foi possivel cancelar o pedido. Verifique o status.'
+      } : current)
     }
   }
 
@@ -137,7 +164,7 @@ export function Orders({ api }: { api: ApiClient }) {
                 <button
                   className="danger-button"
                   onClick={() =>
-                    cancelOrder(order.orderId)
+                    requestCancelOrder(order)
                   }
                 >
                   Cancelar
@@ -222,6 +249,34 @@ export function Orders({ api }: { api: ApiClient }) {
                 </div>
               </>
             ) : null}
+          </section>
+        </div>
+      ) : null}
+
+      {cancelDialog ? (
+        <div className="order-modal-backdrop" role="presentation" onMouseDown={closeCancelDialog}>
+          <section className="order-cancel-modal" role="dialog" aria-modal="true" aria-label="Confirmar cancelamento" onMouseDown={(event) => event.stopPropagation()}>
+            <div className="order-cancel-icon" aria-hidden="true">!</div>
+            <div className="order-cancel-copy">
+              <span>Cancelar pedido</span>
+              <strong>Deseja cancelar o pedido #{cancelDialog.order.orderId}?</strong>
+              <p>
+                Esta acao pode gerar estorno conforme as parcelas ja pagas e remover cobrancas futuras do cartao.
+              </p>
+            </div>
+
+            {cancelDialog.error ? (
+              <p className="order-cancel-error">{cancelDialog.error}</p>
+            ) : null}
+
+            <div className="order-cancel-actions">
+              <button type="button" onClick={closeCancelDialog} disabled={cancelDialog.loading}>
+                Manter pedido
+              </button>
+              <button type="button" className="danger-button" onClick={confirmCancelOrder} disabled={cancelDialog.loading}>
+                {cancelDialog.loading ? 'Cancelando...' : 'Confirmar cancelamento'}
+              </button>
+            </div>
           </section>
         </div>
       ) : null}

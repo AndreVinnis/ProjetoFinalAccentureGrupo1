@@ -63,6 +63,11 @@ public class BankingFacadeImpl implements BankingFacade {
     }
 
     @Override
+    public BigDecimal cancelCardPurchase(String reference, String description) {
+        return creditCardService.cancelPurchase(reference, description);
+    }
+
+    @Override
     public void applyCashback(Long toUserId, BigDecimal amount, String reference, String description) {
         accountService.cashback(toUserId, amount, reference, description);
     }

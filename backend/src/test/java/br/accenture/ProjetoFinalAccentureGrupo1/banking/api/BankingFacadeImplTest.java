@@ -125,6 +125,17 @@ class BankingFacadeImplTest {
     }
 
     @Test
+    void cancelCardPurchase_DeveDelegarParaCreditCardService() {
+        when(creditCardService.cancelPurchase("ORDER-42", "Estorno"))
+                .thenReturn(new BigDecimal("33.34"));
+
+        BigDecimal refundedAmount = bankingFacade.cancelCardPurchase("ORDER-42", "Estorno");
+
+        assertEquals(new BigDecimal("33.34"), refundedAmount);
+        verify(creditCardService).cancelPurchase("ORDER-42", "Estorno");
+    }
+
+    @Test
     void applyCashback_DeveDelegarParaAccountService() {
         bankingFacade.applyCashback(10L, new BigDecimal("12.50"), "ORDER-42", "Cashback");
 

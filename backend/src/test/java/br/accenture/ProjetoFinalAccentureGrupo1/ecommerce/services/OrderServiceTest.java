@@ -371,16 +371,51 @@ class OrderServiceTest {
         when(orderRepository.findById(200L)).thenReturn(Optional.of(order));
         when(customerService.findByEmail(EMAIL)).thenReturn(customer);
         when(userFacade.findByEmail(EMAIL)).thenReturn(userInfo());
+        when(bankingFacade.cancelCardPurchase(eq("ORDER-200"), any()))
+                .thenReturn(new BigDecimal("150.00"));
 
         orderService.cancel(200L, EMAIL);
 
-        verify(bankingFacade).issueRefund(eq(10L), eq(order.getTotalAmount()), eq("ORDER-200"), any());
+        verify(bankingFacade).cancelCardPurchase(eq("ORDER-200"), any());
+        verify(bankingFacade, never()).issueRefund(any(), any(), any(), any());
         verify(productService).restock(100L, 2);
         verify(productService, never()).releaseReservation(any(), anyInt());
 
         ArgumentCaptor<OrderCancelledEvent> evCap = ArgumentCaptor.forClass(OrderCancelledEvent.class);
         verify(eventPublisher).publishEvent(evCap.capture());
         assertTrue(evCap.getValue().refundIssued());
+    }
+
+    @Test
+    void cancel_PaidCardPath_NaoDeveMarcarEstorno_QuandoNenhumaParcelaFoiPaga() {
+        Order order = orderWithItem(200L, OrderStatus.PAID, PaymentMethod.CREDIT_CARD);
+        when(orderRepository.findById(200L)).thenReturn(Optional.of(order));
+        when(customerService.findByEmail(EMAIL)).thenReturn(customer);
+        when(userFacade.findByEmail(EMAIL)).thenReturn(userInfo());
+        when(bankingFacade.cancelCardPurchase(eq("ORDER-200"), any()))
+                .thenReturn(BigDecimal.ZERO);
+
+        orderService.cancel(200L, EMAIL);
+
+        verify(bankingFacade).cancelCardPurchase(eq("ORDER-200"), any());
+        verify(bankingFacade, never()).issueRefund(any(), any(), any(), any());
+
+        ArgumentCaptor<OrderCancelledEvent> evCap = ArgumentCaptor.forClass(OrderCancelledEvent.class);
+        verify(eventPublisher).publishEvent(evCap.capture());
+        assertFalse(evCap.getValue().refundIssued());
+    }
+
+    @Test
+    void cancel_PaidPixPath_DeveEstornarValorTotal() {
+        Order order = orderWithItem(200L, OrderStatus.PAID, PaymentMethod.PIX);
+        when(orderRepository.findById(200L)).thenReturn(Optional.of(order));
+        when(customerService.findByEmail(EMAIL)).thenReturn(customer);
+        when(userFacade.findByEmail(EMAIL)).thenReturn(userInfo());
+
+        orderService.cancel(200L, EMAIL);
+
+        verify(bankingFacade).issueRefund(eq(10L), eq(order.getTotalAmount()), eq("ORDER-200"), any());
+        verify(bankingFacade, never()).cancelCardPurchase(any(), any());
     }
 
     @Test

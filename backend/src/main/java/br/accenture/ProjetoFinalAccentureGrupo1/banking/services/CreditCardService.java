@@ -11,6 +11,7 @@ import br.accenture.ProjetoFinalAccentureGrupo1.banking.dto.CardValidationRespon
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.dto.CreditCardResponse;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.dto.CreditLimitResponse;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.enums.CreditCardStatus;
+import br.accenture.ProjetoFinalAccentureGrupo1.banking.enums.InvoiceStatus;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.events.PaymentReceivedEvent;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.exceptions.*;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.repository.CardPurchaseRepository;
@@ -149,6 +150,43 @@ public class CreditCardService {
     }
 
     @Transactional
+    public BigDecimal cancelPurchase(String reference, String refundDescription) {
+        List<CardPurchase> purchases = cardPurchaseRepository.findByReferenceOrderByPurchaseDateAsc(reference);
+        if (purchases.isEmpty()) {
+            return BigDecimal.ZERO;
+        }
+
+        CreditCard card = purchases.get(0).getCard();
+        BigDecimal refundAmount = BigDecimal.ZERO;
+        BigDecimal limitToRestore = BigDecimal.ZERO;
+
+        for (CardPurchase purchase : purchases) {
+            Invoice invoice = purchase.getInvoice();
+            BigDecimal paidAmount = calculatePaidPurchaseAmount(invoice, purchase.getAmount());
+            BigDecimal unpaidAmount = purchase.getAmount().subtract(paidAmount);
+
+            refundAmount = refundAmount.add(paidAmount);
+            limitToRestore = limitToRestore.add(unpaidAmount);
+
+            invoice.setTotalAmount(nonNegative(invoice.getTotalAmount().subtract(purchase.getAmount())));
+            invoice.setPaidAmount(nonNegative(invoice.getPaidAmount().subtract(paidAmount)));
+            reconcileInvoiceAfterPurchaseCancellation(invoice);
+            cardPurchaseRepository.delete(purchase);
+        }
+
+        if (limitToRestore.signum() > 0) {
+            card.setAvailableLimit(capAtCreditLimit(card, card.getAvailableLimit().add(limitToRestore)));
+            creditCardRepository.save(card);
+        }
+
+        if (refundAmount.signum() > 0) {
+            accountService.refund(card.getAccount().getUserId(), refundAmount, reference, refundDescription);
+        }
+
+        return refundAmount;
+    }
+
+    @Transactional
     public void blockCardByAccount(Account account) {
         CreditCard card = creditCardRepository.findByAccount(account).orElseThrow(
                 () -> new CardNotFoundException(0L)
@@ -251,6 +289,55 @@ public class CreditCardService {
         if (installments < 1 || installments > 12) {
             throw new IllegalArgumentException("Parcelamento deve estar entre 1 e 12");
         }
+    }
+
+    private BigDecimal calculatePaidPurchaseAmount(Invoice invoice, BigDecimal purchaseAmount) {
+        if (invoice.getStatus() == InvoiceStatus.PAID) {
+            return purchaseAmount;
+        }
+
+        if (invoice.getPaidAmount() == null
+                || invoice.getTotalAmount() == null
+                || invoice.getPaidAmount().signum() <= 0
+                || invoice.getTotalAmount().signum() <= 0) {
+            return BigDecimal.ZERO;
+        }
+
+        BigDecimal paidRatio = invoice.getPaidAmount()
+                .divide(invoice.getTotalAmount(), 8, RoundingMode.HALF_EVEN);
+        BigDecimal paidAmount = purchaseAmount.multiply(paidRatio).setScale(2, RoundingMode.HALF_EVEN);
+
+        return paidAmount.min(purchaseAmount);
+    }
+
+    private void reconcileInvoiceAfterPurchaseCancellation(Invoice invoice) {
+        if (invoice.getStatus() == InvoiceStatus.OPEN) {
+            return;
+        }
+
+        if (invoice.getTotalAmount().signum() == 0) {
+            invoice.setPaidAmount(BigDecimal.ZERO);
+            invoice.setStatus(InvoiceStatus.PAID);
+            if (invoice.getPaidAt() == null) {
+                invoice.setPaidAt(Instant.now());
+            }
+            return;
+        }
+
+        if (invoice.getPaidAmount().compareTo(invoice.getTotalAmount()) >= 0) {
+            invoice.setStatus(InvoiceStatus.PAID);
+            if (invoice.getPaidAt() == null) {
+                invoice.setPaidAt(Instant.now());
+            }
+        }
+    }
+
+    private BigDecimal nonNegative(BigDecimal amount) {
+        return amount.signum() < 0 ? BigDecimal.ZERO : amount;
+    }
+
+    private BigDecimal capAtCreditLimit(CreditCard card, BigDecimal amount) {
+        return amount.compareTo(card.getCreditLimit()) > 0 ? card.getCreditLimit() : amount;
     }
 
     private List<BigDecimal> splitInstallments(BigDecimal amount, int installments) {

@@ -26,6 +26,8 @@ public interface BankingFacade {
 
     void issueRefund(Long toUserId, BigDecimal amount, String reference, String description);
 
+    BigDecimal cancelCardPurchase(String reference, String description);
+
     void applyCashback(Long toUserId, BigDecimal amount, String reference, String description);
 
     /**

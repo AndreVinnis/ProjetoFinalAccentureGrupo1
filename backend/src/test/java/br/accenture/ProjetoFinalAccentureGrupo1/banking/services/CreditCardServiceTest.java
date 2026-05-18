@@ -12,6 +12,7 @@ import br.accenture.ProjetoFinalAccentureGrupo1.banking.dto.CardValidationRespon
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.dto.CreditCardResponse;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.dto.CreditLimitResponse;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.enums.CreditCardStatus;
+import br.accenture.ProjetoFinalAccentureGrupo1.banking.enums.InvoiceStatus;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.exceptions.*;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.repository.CardPurchaseRepository;
 import br.accenture.ProjetoFinalAccentureGrupo1.banking.repository.CreditCardRepository;
@@ -236,6 +237,98 @@ class CreditCardServiceTest {
                 () -> creditCardService.chargeCard(999L, new BigDecimal("100.00"),
                         "123", "Teste", "ORDER-1")
         );
+    }
+
+    @Test
+    void cancelPurchase_DeveEstornarApenasParcelasPagasELiberarLimiteDasNaoPagas() {
+        card.setAvailableLimit(new BigDecimal("933.34"));
+        Invoice paidInvoice = Invoice.builder()
+                .id(60L)
+                .card(card)
+                .totalAmount(new BigDecimal("33.34"))
+                .paidAmount(new BigDecimal("33.34"))
+                .status(InvoiceStatus.PAID)
+                .build();
+        Invoice openInvoice = Invoice.builder()
+                .id(61L)
+                .card(card)
+                .totalAmount(new BigDecimal("33.33"))
+                .paidAmount(BigDecimal.ZERO)
+                .status(InvoiceStatus.OPEN)
+                .build();
+        Invoice futureInvoice = Invoice.builder()
+                .id(62L)
+                .card(card)
+                .totalAmount(new BigDecimal("33.33"))
+                .paidAmount(BigDecimal.ZERO)
+                .status(InvoiceStatus.OPEN)
+                .build();
+        CardPurchase firstInstallment = CardPurchase.builder()
+                .id(1L)
+                .card(card)
+                .invoice(paidInvoice)
+                .amount(new BigDecimal("33.34"))
+                .reference("ORDER-77")
+                .build();
+        CardPurchase secondInstallment = CardPurchase.builder()
+                .id(2L)
+                .card(card)
+                .invoice(openInvoice)
+                .amount(new BigDecimal("33.33"))
+                .reference("ORDER-77")
+                .build();
+        CardPurchase thirdInstallment = CardPurchase.builder()
+                .id(3L)
+                .card(card)
+                .invoice(futureInvoice)
+                .amount(new BigDecimal("33.33"))
+                .reference("ORDER-77")
+                .build();
+        when(cardPurchaseRepository.findByReferenceOrderByPurchaseDateAsc("ORDER-77"))
+                .thenReturn(List.of(firstInstallment, secondInstallment, thirdInstallment));
+
+        BigDecimal refundedAmount = creditCardService.cancelPurchase("ORDER-77", "Estorno");
+
+        assertEquals(new BigDecimal("33.34"), refundedAmount);
+        assertEquals(new BigDecimal("1000.00"), card.getAvailableLimit());
+        assertEquals(0, BigDecimal.ZERO.compareTo(openInvoice.getTotalAmount()));
+        assertEquals(0, BigDecimal.ZERO.compareTo(futureInvoice.getTotalAmount()));
+        assertEquals(InvoiceStatus.OPEN, openInvoice.getStatus());
+        verify(accountService).refund(10L, new BigDecimal("33.34"), "ORDER-77", "Estorno");
+        verify(cardPurchaseRepository).delete(firstInstallment);
+        verify(cardPurchaseRepository).delete(secondInstallment);
+        verify(cardPurchaseRepository).delete(thirdInstallment);
+        verify(creditCardRepository).save(card);
+    }
+
+    @Test
+    void cancelPurchase_NaoDeveCreditarConta_QuandoNenhumaParcelaFoiPaga() {
+        card.setAvailableLimit(new BigDecimal("900.00"));
+        Invoice openInvoice = Invoice.builder()
+                .id(61L)
+                .card(card)
+                .totalAmount(new BigDecimal("100.00"))
+                .paidAmount(BigDecimal.ZERO)
+                .status(InvoiceStatus.OPEN)
+                .build();
+        CardPurchase purchase = CardPurchase.builder()
+                .id(1L)
+                .card(card)
+                .invoice(openInvoice)
+                .amount(new BigDecimal("100.00"))
+                .reference("ORDER-88")
+                .build();
+        when(cardPurchaseRepository.findByReferenceOrderByPurchaseDateAsc("ORDER-88"))
+                .thenReturn(List.of(purchase));
+
+        BigDecimal refundedAmount = creditCardService.cancelPurchase("ORDER-88", "Estorno");
+
+        assertEquals(BigDecimal.ZERO, refundedAmount);
+        assertEquals(new BigDecimal("1000.00"), card.getAvailableLimit());
+        assertEquals(0, BigDecimal.ZERO.compareTo(openInvoice.getTotalAmount()));
+        verify(accountService, never()).refund(any(), any(), any(), any());
+        verify(cardPurchaseRepository).delete(purchase);
+        verify(creditCardRepository).save(card);
     }
 
     @Test

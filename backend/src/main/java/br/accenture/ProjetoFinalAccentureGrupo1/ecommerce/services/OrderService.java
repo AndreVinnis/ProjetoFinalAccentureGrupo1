@@ -303,11 +303,8 @@ public class OrderService {
         else{
             String defaultDescription = "Estorno referente a compra no ecommerce";
             order.setCancelledAt(Instant.now());
-            bankingFacade.issueRefund((customerService.findByEmail(customerEmail).getUserId()),
-                    order.getTotalAmount(),
-                    (orderPrefix + orderId),
-                    defaultDescription);
-            refundIssued = true;
+            BigDecimal refundedAmount = refundPaidOrder(order, customer, orderPrefix + orderId, defaultDescription);
+            refundIssued = refundedAmount.signum() > 0;
             for(OrderItem item: order.getItems()){
                 productService.restock(item.getProductId(), item.getQuantity());
             }
@@ -324,6 +321,15 @@ public class OrderService {
                 refundIssued,
                 order.getCancelledAt()
         ));
+    }
+
+    private BigDecimal refundPaidOrder(Order order, Customer customer, String reference, String description) {
+        if (order.getPaymentMethod() == PaymentMethod.CREDIT_CARD) {
+            return bankingFacade.cancelCardPurchase(reference, description);
+        }
+
+        bankingFacade.issueRefund(customer.getUserId(), order.getTotalAmount(), reference, description);
+        return order.getTotalAmount();
     }
 
     @Transactional(readOnly = true)
