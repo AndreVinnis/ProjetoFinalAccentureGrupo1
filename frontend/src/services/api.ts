@@ -87,7 +87,7 @@ export function createApi(
         errorPayload?.message ||
         errorPayload?.error ||
         text ||
-        `Erro ${response.status}`
+        fallbackErrorMessage(response.status, path)
 
       if (response.status === 401 && token) {
         onUnauthorized?.()
@@ -141,6 +141,14 @@ function safeJson<T>(text: string): T {
   } catch {
     return text as T
   }
+}
+
+function fallbackErrorMessage(status: number, path: string) {
+  if (status === 403 && path.includes('/ecommerce/cart/me/items')) {
+    return 'Sua sacola esta fechada. Reabra o carrinho para adicionar produtos.'
+  }
+
+  return `Erro ${status}`
 }
 
 export type ApiClient =

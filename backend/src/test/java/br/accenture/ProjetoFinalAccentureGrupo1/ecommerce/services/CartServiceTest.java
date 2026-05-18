@@ -9,6 +9,7 @@ import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.dto.AddToCartRequest;
 import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.dto.CartResponse;
 import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.dto.UpdateCartItemRequest;
 import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.enums.CartStatus;
+import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.exceptions.CartAlreadyClosed;
 import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.exceptions.CartEmptyException;
 import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.exceptions.CartItemNotFoundException;
 import br.accenture.ProjetoFinalAccentureGrupo1.ecommerce.exceptions.CartNotFoundException;
@@ -178,7 +179,7 @@ class CartServiceTest {
     }
 
     @Test
-    @DisplayName("closeCart lança IllegalStateException quando o carrinho já está RESERVED")
+    @DisplayName("closeCart lança CartAlreadyClosed quando o carrinho já está RESERVED")
     void closeCart_throwsWhenAlreadyClosed() {
         Cart cart = activeCart();
         cart.setStatus(CartStatus.RESERVED);
@@ -188,8 +189,8 @@ class CartServiceTest {
         when(cartRepository.findByCustomer_Id(customer.getId())).thenReturn(Optional.of(cart));
 
         assertThatThrownBy(() -> cartService.closeCart(EMAIL))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("fechado");
+                .isInstanceOf(CartAlreadyClosed.class)
+                .hasMessageContaining("fechada");
     }
 
     @Test
@@ -289,7 +290,7 @@ class CartServiceTest {
     }
 
     @Test
-    @DisplayName("addItem lança IllegalStateException quando o carrinho está fechado")
+    @DisplayName("addItem lança CartAlreadyClosed quando o carrinho está fechado")
     void addItem_throwsWhenCartClosed() {
         Cart cart = activeCart();
         cart.setStatus(CartStatus.RESERVED);
@@ -298,7 +299,7 @@ class CartServiceTest {
         when(cartRepository.findByCustomer_Id(customer.getId())).thenReturn(Optional.of(cart));
 
         assertThatThrownBy(() -> cartService.addItem(EMAIL, new AddToCartRequest(product.getId(), 1)))
-                .isInstanceOf(IllegalStateException.class);
+                .isInstanceOf(CartAlreadyClosed.class);
     }
 
     @Test
@@ -394,7 +395,7 @@ class CartServiceTest {
     }
 
     @Test
-    @DisplayName("updateItemQuantity lança IllegalStateException quando o carrinho está fechado")
+    @DisplayName("updateItemQuantity lança CartAlreadyClosed quando o carrinho está fechado")
     void updateItemQuantity_throwsWhenCartClosed() {
         Cart cart = activeCart();
         cart.setStatus(CartStatus.RESERVED);
@@ -403,7 +404,7 @@ class CartServiceTest {
         when(cartRepository.findByCustomer_Id(customer.getId())).thenReturn(Optional.of(cart));
 
         assertThatThrownBy(() -> cartService.updateItemQuantity(EMAIL, product.getId(), new UpdateCartItemRequest(2)))
-                .isInstanceOf(IllegalStateException.class);
+                .isInstanceOf(CartAlreadyClosed.class);
     }
 
     @Test

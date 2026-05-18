@@ -57,7 +57,7 @@ public class CartService {
             throw new CartEmptyException();
         }
         if (isClosed(cart)) {
-            throw new IllegalStateException("Carrinho já está fechado");
+            throw new CartAlreadyClosed(cart.getId());
         }
         for(CartItem item: cart.getItems()){
             productService.reserveStock(item.getProduct().getId(), item.getQuantity());
@@ -87,7 +87,7 @@ public class CartService {
         Customer customer = customerService.findByEmail(email);
         Cart cart = getOrCreateCart(customer);
         if (isClosed(cart)) {
-            throw new IllegalStateException("Carrinho já está fechado");
+            throw new CartAlreadyClosed(cart.getId());
         }
         Product product = productService.findById(request.productId());
         assertProductActive(product);
@@ -126,7 +126,7 @@ public class CartService {
         Cart cart = cartRepository.findByCustomer_Id(customer.getId())
                 .orElseThrow(() -> new CartItemNotFoundException(productId));
         if (isClosed(cart)) {
-            throw new IllegalStateException("Carrinho já está fechado");
+            throw new CartAlreadyClosed(cart.getId());
         }
         CartItem item = cartItemRepository.findByCart_IdAndProduct_Id(cart.getId(), productId)
                 .orElseThrow(() -> new CartItemNotFoundException(productId));
